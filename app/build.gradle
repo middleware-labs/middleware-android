@@ -1,0 +1,54 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'io.middleware.android.sample'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "io.middleware.android.sample"
+        minSdk 26
+        targetSdk 33
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+dependencies {
+    implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha:1.31.0-alpha'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.10.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("androidx.webkit:webkit:1.8.0")
+    implementation("androidx.browser:browser:1.6.0")
+    implementation project(path: ':sdk')
+
+    implementation "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api"
+    implementation "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api-semconv"
+    implementation 'io.opentelemetry.instrumentation:opentelemetry-okhttp-3.0:1.31.0-alpha'
+    implementation("io.opentelemetry:opentelemetry-api-events")
+    implementation("io.opentelemetry:opentelemetry-sdk-logs")
+    implementation("io.opentelemetry:opentelemetry-sdk")
+    implementation("androidx.navigation:navigation-fragment:2.7.4")
+    implementation("androidx.navigation:navigation-ui:2.7.4")
+    implementation 'androidx.work:work-runtime:2.8.1'
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+
+}
