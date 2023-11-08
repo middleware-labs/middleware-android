@@ -1,9 +1,9 @@
 package io.middleware.android.sdk.extractors;
 
-import static io.middleware.android.sdk.core.Constants.COMPONENT_KEY;
-import static io.middleware.android.sdk.core.Constants.LINK_PARENT_SPAN_ID_KEY;
-import static io.middleware.android.sdk.core.Constants.LINK_SPAN_ID_KEY;
-import static io.middleware.android.sdk.core.Constants.LINK_TRACE_ID_KEY;
+import static io.middleware.android.sdk.utils.Constants.COMPONENT_KEY;
+import static io.middleware.android.sdk.utils.Constants.LINK_PARENT_SPAN_ID_KEY;
+import static io.middleware.android.sdk.utils.Constants.LINK_SPAN_ID_KEY;
+import static io.middleware.android.sdk.utils.Constants.LINK_TRACE_ID_KEY;
 
 import io.middleware.android.sdk.utils.ServerTimingHeaderParser;
 import io.opentelemetry.api.common.AttributesBuilder;

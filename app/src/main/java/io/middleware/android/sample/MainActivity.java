@@ -5,8 +5,8 @@ import static io.opentelemetry.api.common.AttributeKey.stringKey;
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.os.Bundle;
-import android.util.Log;
 import android.widget.Button;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -37,9 +37,8 @@ public class MainActivity extends AppCompatActivity {
 
     private Call.Factory okHttpClient;
     private final MutableLiveData<String> httpResponse = new MutableLiveData<>();
-    private final MutableLiveData<String> sessionId = new MutableLiveData<>();
-
     private Middleware middleware;
+    int count = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,44 +46,51 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         middleware = Middleware.getInstance();
         okHttpClient = buildOkHttpClient(middleware);
+        count = 0;
         final Button httpButton = findViewById(R.id.http_button);
         httpButton.setOnClickListener(v -> {
-            Log.d("BUTTONS", "User tapped the HTTP Call Button");
             middleware.addEvent("click", Attributes.empty());
             Span workflow = middleware.startWorkflow("MAKE HTTP CUSTOM CALL");
             makeCall("http://pmrum.o11ystore.com/?user=me&pass=secret123secret", workflow);
+            makeRawCall("https://f40a-45-64-14-227.ngrok-free.app/v1/todos-all");
             middleware.setGlobalAttribute(AttributeKey.longKey("customerId"), 123456L);
-            emitEvent(Middleware.getInstance(), "SecondFragment", "toWebViewClick");
+            count++;
+            middleware.d("BUTTONS", "User tapped the HTTP Call Button " + count + " times");
+            Toast.makeText(getApplicationContext(), "HTTP CALL Successful", Toast.LENGTH_SHORT).show();
         });
 
         final Button crashButton = findViewById(R.id.crash_button);
         crashButton.setOnClickListener(v -> {
-            Log.d("BUTTON", "CLICKED : CRASH BUTTON");
+            middleware.d("BUTTON", "CLICKED : CRASH BUTTON");
             middleware.addEvent("click", Attributes.empty());
             Span workflow = middleware.startWorkflow("Crash Workflow");
             crashFlowTrigger(workflow);
             middleware.setGlobalAttribute(stringKey("crashId"), String.valueOf(Math.random()));
+
         });
 
         final Button webView = findViewById(R.id.web_view_button);
         webView.setOnClickListener(v -> {
-            Log.d("BUTTON", "CLICKED: WEBVIEW BUTTON");
+            middleware.d("BUTTON", "CLICKED: WEBVIEW BUTTON");
             middleware.addEvent("click", Attributes.empty());
             Intent i = new Intent(this, WebViewActivity.class);
             startActivity(i);
+            Toast.makeText(getApplicationContext(), "Moved to WebView Activity", Toast.LENGTH_SHORT).show();
         });
 
         final Button workerButton = findViewById(R.id.worker_button);
         workerButton.setOnClickListener(v -> {
-            Log.d("BUTTON", "CLICKED: WORKER BUTTON");
+            middleware.d("BUTTON", "CLICKED: WORKER BUTTON");
             middleware.addEvent("click", Attributes.empty());
             SampleWorkerManager.startWorker(this.getApplicationContext());
+            Toast.makeText(getApplicationContext(), "Worker Execution Completed", Toast.LENGTH_SHORT).show();
         });
 
         final Button customRumEvent = findViewById(R.id.custom_event_button);
         customRumEvent.setOnClickListener(v -> {
-            Log.d("BUTTON", "CLICKED: CUSTOM RUM EVENT");
+            middleware.d("BUTTON", "CLICKED: CUSTOM RUM EVENT");
             middleware.addEvent("rum_event", Attributes.of(stringKey("message"), "My First RUM EVENT"));
+            Toast.makeText(getApplicationContext(), "Your Rum Event Successfully sent", Toast.LENGTH_SHORT).show();
         });
     }
 
@@ -148,7 +154,7 @@ public class MainActivity extends AppCompatActivity {
                         public void onResponse(@NonNull Call call, @NonNull Response response) {
                             try (ResponseBody body = response.body()) {
                                 int responseCode = response.code();
-                                Log.d("Response", body.toString());
+                                middleware.d("Response", body.toString());
                                 httpResponse.postValue("" + responseCode);
                                 workflow.end();
                             }
@@ -156,6 +162,28 @@ public class MainActivity extends AppCompatActivity {
                     });
         }
     }
+
+    private void makeRawCall(String url) {
+        Call call = okHttpClient.newCall(new Request.Builder().url(url).get().build());
+        call.enqueue(
+                new Callback() {
+                    @Override
+                    public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                        httpResponse.postValue("error");
+                    }
+
+                    @Override
+                    public void onResponse(@NonNull Call call, @NonNull Response response) {
+                        try (ResponseBody body = response.body()) {
+                            int responseCode = response.code();
+                            middleware.d("Response", body.toString());
+                            httpResponse.postValue("" + responseCode);
+                        }
+                    }
+                });
+
+    }
+
     public static void emitEvent(Middleware middleware, String eventDomain, String eventName) {
         EventEmitterProvider eventEmitterProvider =
                 SdkEventEmitterProvider.create(

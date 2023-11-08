@@ -1,5 +1,5 @@
 
-package io.middleware.android.sdk.core;
+package io.middleware.android.sdk.extractors;
 
 import android.app.Activity;
 
@@ -10,9 +10,9 @@ import java.util.function.Function;
 import io.opentelemetry.android.instrumentation.RumScreenName;
 import io.opentelemetry.android.instrumentation.ScreenNameExtractor;
 
-class MiddlewareScreenNameExtractor implements ScreenNameExtractor {
+public class MiddlewareScreenNameExtractor implements ScreenNameExtractor {
 
-    static ScreenNameExtractor INSTANCE = new MiddlewareScreenNameExtractor();
+    public static ScreenNameExtractor INSTANCE = new MiddlewareScreenNameExtractor();
 
     private MiddlewareScreenNameExtractor() {
     }

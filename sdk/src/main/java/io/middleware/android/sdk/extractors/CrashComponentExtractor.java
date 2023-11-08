@@ -1,9 +1,9 @@
 package io.middleware.android.sdk.extractors;
 
 
-import static io.middleware.android.sdk.core.Constants.COMPONENT_CRASH;
-import static io.middleware.android.sdk.core.Constants.COMPONENT_ERROR;
-import static io.middleware.android.sdk.core.Constants.COMPONENT_KEY;
+import static io.middleware.android.sdk.utils.Constants.COMPONENT_CRASH;
+import static io.middleware.android.sdk.utils.Constants.COMPONENT_ERROR;
+import static io.middleware.android.sdk.utils.Constants.COMPONENT_KEY;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 

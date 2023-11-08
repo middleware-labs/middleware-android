@@ -1,4 +1,4 @@
-package io.middleware.android.sdk.core;
+package io.middleware.android.sdk.utils;
 
 import static io.opentelemetry.api.common.AttributeKey.doubleKey;
 import static io.opentelemetry.api.common.AttributeKey.stringKey;

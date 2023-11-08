@@ -11,10 +11,10 @@ public class SampleApplication extends Application {
     public void onCreate() {
         super.onCreate();
         Middleware.builder()
-                .setTarget("https://acb0-45-64-15-159.ngrok-free.app")
+                .setTarget("https://pzghp.front.env.middleware.io")
                 .setServiceName("sample-android-app-1")
                 .setProjectName("Mobile-SDK-Android")
-                .setRumAccessToken("kxozdvbzbtoxbecweemnwgwhrwwkshuinoay")
+                .setRumAccessToken("xoegluoohnpzdnoaeatptfbbwjnwddjgntes")
                 .setSlowRenderingDetectionPollInterval(Duration.ofMillis(1000))
                 .setDeploymentEnvironment("PROD")
                 .enableDebug()

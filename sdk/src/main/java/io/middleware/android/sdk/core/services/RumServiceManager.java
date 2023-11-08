@@ -1,4 +1,4 @@
-package io.middleware.android.sdk.core;
+package io.middleware.android.sdk.core.services;
 
 import android.annotation.SuppressLint;
 import android.content.Context;

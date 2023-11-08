@@ -29,7 +29,7 @@ android {
 }
 
 dependencies {
-    implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha:1.31.0-alpha'
+    implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha:1.32.0-alpha-SNAPSHOT'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.10.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
@@ -40,13 +40,15 @@ dependencies {
 
     implementation "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api"
     implementation "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api-semconv"
-    implementation 'io.opentelemetry.instrumentation:opentelemetry-okhttp-3.0:1.31.0-alpha'
+    implementation 'io.opentelemetry.instrumentation:opentelemetry-okhttp-3.0:1.32.0-alpha-SNAPSHOT'
     implementation("io.opentelemetry:opentelemetry-api-events")
     implementation("io.opentelemetry:opentelemetry-sdk-logs")
     implementation("io.opentelemetry:opentelemetry-sdk")
-    implementation("androidx.navigation:navigation-fragment:2.7.4")
-    implementation("androidx.navigation:navigation-ui:2.7.4")
+    implementation("androidx.navigation:navigation-fragment:2.7.5")
+    implementation("androidx.navigation:navigation-ui:2.7.5")
     implementation 'androidx.work:work-runtime:2.8.1'
+    implementation "androidx.concurrent:concurrent-futures:1.1.0"
+    implementation 'com.google.guava:guava:29.0-android'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'

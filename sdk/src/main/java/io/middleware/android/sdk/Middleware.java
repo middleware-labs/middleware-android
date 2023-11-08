@@ -1,12 +1,12 @@
 package io.middleware.android.sdk;
 
-import static io.middleware.android.sdk.core.Constants.COMPONENT_ERROR;
-import static io.middleware.android.sdk.core.Constants.COMPONENT_KEY;
-import static io.middleware.android.sdk.core.Constants.LOCATION_LATITUDE_KEY;
-import static io.middleware.android.sdk.core.Constants.LOCATION_LONGITUDE_KEY;
-import static io.middleware.android.sdk.core.Constants.LOG_TAG;
-import static io.middleware.android.sdk.core.Constants.RUM_TRACER_NAME;
-import static io.middleware.android.sdk.core.Constants.WORKFLOW_NAME_KEY;
+import static io.middleware.android.sdk.utils.Constants.COMPONENT_ERROR;
+import static io.middleware.android.sdk.utils.Constants.COMPONENT_KEY;
+import static io.middleware.android.sdk.utils.Constants.LOCATION_LATITUDE_KEY;
+import static io.middleware.android.sdk.utils.Constants.LOCATION_LONGITUDE_KEY;
+import static io.middleware.android.sdk.utils.Constants.LOG_TAG;
+import static io.middleware.android.sdk.utils.Constants.RUM_TRACER_NAME;
+import static io.middleware.android.sdk.utils.Constants.WORKFLOW_NAME_KEY;
 
 import android.app.Application;
 import android.location.Location;
@@ -15,6 +15,7 @@ import android.os.Looper;
 import android.util.Log;
 import android.webkit.WebView;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import java.util.concurrent.TimeUnit;
@@ -35,8 +36,11 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
+import io.opentelemetry.api.logs.Logger;
+import io.opentelemetry.api.logs.Severity;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Scope;
 import io.opentelemetry.instrumentation.okhttp.v3_0.OkHttpTelemetry;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import okhttp3.Call;
@@ -46,16 +50,12 @@ import okhttp3.OkHttpClient;
  * Entrypoint for the Middleware OpenTelemetry Instrumentation for Android.
  */
 public class Middleware implements IMiddleware {
-    // initialize this here, statically, to make sure we capture the earliest possible timestamp for
-    // startup.
     private static final AppStartupTimer startupTimer = new AppStartupTimer();
-
     @Nullable
     private static Middleware INSTANCE;
-
+    private static Logger LOGGER;
     private final OpenTelemetryRum openTelemetryRum;
     private final GlobalAttributesSpanAppender globalAttributes;
-
     private static RumInitializer rumInitializer;
 
     static {
@@ -84,9 +84,17 @@ public class Middleware implements IMiddleware {
             Log.w(LOG_TAG, "Singleton Middleware instance has already been initialized.");
             return INSTANCE;
         }
-        rumInitializer = new RumInitializer(builder, application, new AppStartupTimer());
-        INSTANCE = rumInitializer.initialize(currentNetworkProviderFactory);
 
+        if (builder.isSubprocessInstrumentationDisabled() && builder.isSubprocess) {
+            INSTANCE = Middleware.noop();
+        } else {
+            rumInitializer = new RumInitializer(builder, application, startupTimer);
+            INSTANCE = rumInitializer.initialize(currentNetworkProviderFactory, Looper.getMainLooper());
+        }
+
+        LOGGER = INSTANCE.getOpenTelemetry().getLogsBridge()
+                .loggerBuilder(builder.serviceName)
+                .build();
 
         Log.i(
                 LOG_TAG,
@@ -164,17 +172,8 @@ public class Middleware implements IMiddleware {
         return openTelemetryRum.getRumSessionId();
     }
 
-    /**
-     * Add a custom event to RUM monitoring. This can be useful to capture business events, or
-     * simply add instrumentation to your application.
-     *
-     * <p>This event will be turned into a Span and sent to the RUM ingest along with other,
-     * auto-generated spans.
-     *
-     * @param name       The name of the event.
-     * @param attributes Any {@link Attributes} to associate with the event.
-     */
-    public void addRumEvent(String name, Attributes attributes) {
+
+    private void addRumEvent(String name, Attributes attributes) {
         if (isInitialized()) {
             INSTANCE.sendRumEvent(name, attributes);
         } else {
@@ -187,11 +186,17 @@ public class Middleware implements IMiddleware {
         rumInitializer.sendRumEvent(name, attributes);
     }
 
+    /**
+     * Add a custom event to RUM monitoring. This can be useful to capture business events, or
+     * simply add instrumentation to your application.
+     *
+     * @param name       The name of the event.
+     * @param attributes Any {@link Attributes} to associate with the event.
+     */
     @Override
     public void addEvent(String name, Attributes attributes) {
         getTracer().spanBuilder(name).setAllAttributes(attributes).startSpan().end();
     }
-
 
     /**
      * Start a Span to time a named workflow.
@@ -254,9 +259,6 @@ public class Middleware implements IMiddleware {
      *
      * <p>If you attempt to set a value to null or use a null key, this call will be ignored.
      *
-     * <p>Note: this operation performs an atomic update. The passed function should be free from
-     * side effects, since it may be called multiple times in case of thread contention.
-     *
      * @param key   The {@link AttributeKey} for the attribute.
      * @param value The value of the attribute, which must match the generic type of the key.
      * @param <T>   The generic type of the value.
@@ -267,9 +269,6 @@ public class Middleware implements IMiddleware {
 
     /**
      * Update the global set of attributes that will be appended to every span and event.
-     *
-     * <p>Note: this operation performs an atomic update. The passed function should be free from
-     * side effects, since it may be called multiple times in case of thread contention.
      *
      * @param attributesUpdater A function which will update the current set of attributes, by
      *                          operating on a {@link AttributesBuilder} from the current set.
@@ -283,7 +282,6 @@ public class Middleware implements IMiddleware {
         INSTANCE = null;
     }
 
-    // (currently) for testing only
     void flushSpans() {
         OpenTelemetry openTelemetry = getOpenTelemetry();
         if (openTelemetry instanceof OpenTelemetrySdk) {
@@ -294,11 +292,25 @@ public class Middleware implements IMiddleware {
         }
     }
 
+    /**
+     * Inject Javascript interface into WebView enables browser based RUM implementation.
+     *
+     * @param webView WebView object to inject Javascript interface.
+     */
     @Override
     public void integrateWithBrowserRum(WebView webView) {
         webView.addJavascriptInterface(new NativeRumSessionId(this), "MiddlewareNative");
     }
 
+    /**
+     * Updates the current location. The latitude and longitude will be appended to every span and
+     * event.
+     *
+     * <p>Note: this operation performs an atomic update. You can safely call it from your {@code
+     * LocationListener} or {@code LocationCallback}.
+     *
+     * @param location the current location. Passing {@code null} removes the location data.
+     */
     @Override
     public void updateLocation(@Nullable Location location) {
         if (location == null) {
@@ -314,5 +326,83 @@ public class Middleware implements IMiddleware {
                                     .put(LOCATION_LATITUDE_KEY, location.getLatitude())
                                     .put(LOCATION_LONGITUDE_KEY, location.getLongitude()));
         }
+    }
+
+    /**
+     * Send an DEBUG log message.
+     *
+     * @param TAG     Used to identify the source of a log message.  It usually identifies
+     *                the class or activity where the log call occurs.
+     * @param message The message you would like logged.
+     */
+    @Override
+    public void d(@NonNull String TAG, @NonNull String message) {
+        Log.d(TAG, message);
+        log(TAG, message, Severity.DEBUG);
+    }
+
+    /**
+     * Send an ERROR log message.
+     *
+     * @param TAG     Used to identify the source of a log message.  It usually identifies
+     *                the class or activity where the log call occurs.
+     * @param message The message you would like logged.
+     */
+    @Override
+    public void e(@NonNull String TAG, @NonNull String message) {
+        Log.e(TAG, message);
+        log(TAG, message, Severity.ERROR);
+    }
+
+    /**
+     * Send an INFO log message.
+     *
+     * @param TAG     Used to identify the source of a log message.  It usually identifies
+     *                the class or activity where the log call occurs.
+     * @param message The message you would like logged.
+     */
+    @Override
+    public void i(@NonNull String TAG, @NonNull String message) {
+        Log.i(TAG, message);
+        log(TAG, message, Severity.INFO);
+    }
+
+    /**
+     * Send an WARN log message.
+     *
+     * @param TAG     Used to identify the source of a log message.  It usually identifies
+     *                the class or activity where the log call occurs.
+     * @param message The message you would like logged.
+     */
+    @Override
+    public void w(@NonNull String TAG, @NonNull String message) {
+        Log.e(TAG, message);
+        log(TAG, message, Severity.WARN);
+    }
+
+    /**
+     * Send an FATAL log message.
+     *
+     * @param TAG     Used to identify the source of a log message.  It usually identifies
+     *                the class or activity where the log call occurs.
+     * @param message The message you would like logged.
+     */
+    @Override
+    public void wtf(@NonNull String TAG, @NonNull String message) {
+        Log.wtf(TAG, message);
+        log(TAG, message, Severity.ERROR);
+    }
+
+    private void log(String TAG, String message, Severity severity) {
+        Span span = getTracer().spanBuilder(TAG).startSpan();
+        try (Scope ignored = span.makeCurrent()) {
+            LOGGER.logRecordBuilder()
+                    .setSeverity(severity)
+                    .setSeverityText(severity.name())
+                    .setBody(message)
+                    .setAttribute(AttributeKey.stringKey("TAG"), TAG)
+                    .emit();
+        }
+        span.end();
     }
 }

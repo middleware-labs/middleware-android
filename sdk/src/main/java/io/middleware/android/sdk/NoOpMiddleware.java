@@ -46,7 +46,7 @@ class NoOpMiddleware extends Middleware {
     }
 
     @Override
-    public void addRumEvent(String name, Attributes attributes) {
+    public void addEvent(String name, Attributes attributes) {
         // no-op
     }
 

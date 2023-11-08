@@ -1,8 +1,9 @@
 package io.middleware.android.sdk.builders;
 
-import static io.middleware.android.sdk.core.Constants.LOG_TAG;
+import static io.middleware.android.sdk.utils.Constants.LOG_TAG;
 
 import android.app.Application;
+import android.os.Looper;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -48,11 +49,10 @@ public final class MiddlewareBuilder {
     public Duration slowRenderingDetectionPollInterval = DEFAULT_SLOW_RENDERING_DETECTION_POLL_INTERVAL;
     public Attributes globalAttributes = Attributes.empty();
     @Nullable
-    public
-    String deploymentEnvironment;
+    public String deploymentEnvironment;
     boolean sessionBasedSamplerEnabled = false;
     double sessionBasedSamplerRatio = 1.0;
-    boolean isSubprocess = false;
+    public boolean isSubprocess = false;
 
     /**
      * Sets the application name that will be used to identify your application in the Middleware RUM
@@ -212,8 +212,7 @@ public final class MiddlewareBuilder {
     }
 
     /**
-     * Sets the deployment environment for this RUM instance. Deployment environment is passed along
-     * as a span attribute to help identify in the Splunk RUM UI.
+     * Sets the deployment environment for this RUM instance.
      *
      * @param environment The deployment environment name
      * @return {@code this}
@@ -282,7 +281,7 @@ public final class MiddlewareBuilder {
         return configFlags.isReactNativeSupportEnabled();
     }
 
-    boolean isSubprocessInstrumentationDisabled() {
+    public boolean isSubprocessInstrumentationDisabled() {
         return !configFlags.isSubprocessInstrumentationEnabled();
     }
 
