@@ -9,6 +9,7 @@
 - OkHttp3 instrumention for monitoring http events
 - Middleware APIs for sending custom events & record exceptions
 - Access to OpenTelemetry APIs
+- Custom logging
 
 ## Setup
 
@@ -128,7 +129,7 @@ Methods that can be used for setting instrumentation & configure your applicatio
         <code lang="java">setSlowRenderingDetectionPollInterval(Duration)</code>
     </td>
     <td>
-        Sets the deafult polling for slow or frozen render detection. Default value in milliseconds is <code>1000</code>
+        Sets the default polling for slow or frozen render detection. Default value in milliseconds is <code>1000</code>
     </td>
 </tr>
 </tbody>
@@ -187,5 +188,17 @@ You can report exceptions, errors and any messages using `addException(Throwable
 
 ```java
 Middleware.getInstance().addException(new RuntimeException("Something went wrong!"), Attributes.empty())
+```
+
+#### Custom Logs
+
+You can add custom logs such as debug, error, warn, info these logs will be shown on Middleware Logs Dashboard
+
+```java
+Middleware logInstance = Middleware.getInstance();
+logInstance.d("TAG", "I am debug");
+logInstance.e("TAG", "I am error");
+logInstance.i("TAG", "I am info");
+logInstance.w("TAG", "I am warn");
 ```
 

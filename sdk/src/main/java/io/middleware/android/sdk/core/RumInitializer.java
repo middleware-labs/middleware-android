@@ -45,8 +45,6 @@ public class RumInitializer implements IRum {
     private final Application application;
     private final AppStartupTimer appStartupTimer;
 
-//    private RumSetup rumSetup;
-
     public RumInitializer(MiddlewareBuilder builder, Application application, AppStartupTimer appStartupTimer) {
         this.builder = builder;
         this.application = application;
@@ -58,7 +56,7 @@ public class RumInitializer implements IRum {
         VisibleScreenTracker visibleScreenTracker = new VisibleScreenTracker();
         GlobalAttributesSpanAppender globalAttributesSpanAppender = GlobalAttributesSpanAppender.create(builder.globalAttributes);
         final CurrentNetworkProvider currentNetworkProvider = currentNetworkProviderFactory.apply(application);
-        RumSetup rumSetup = new RumSetup(application);
+        final RumSetup rumSetup = new RumSetup(application);
         Resource middlewareResource = createMiddlewareResource();
         rumSetup.mergeResource(middlewareResource);
         rumSetup.setGlobalAttributes(globalAttributesSpanAppender);
