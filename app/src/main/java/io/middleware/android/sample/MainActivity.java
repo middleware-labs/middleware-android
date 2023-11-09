@@ -141,6 +141,8 @@ public class MainActivity extends AppCompatActivity {
         // make sure the span is in the current context so it can be propagated into the async call.
         try (Scope scope = workflow.makeCurrent()) {
             Call call = okHttpClient.newCall(new Request.Builder().url(url).get().build());
+            middleware.d("HTTP", "HTTP CALL STARTED " + url);
+            middleware.d("HTTP", "HEADERS : " + call.request().headers().toString());
             call.enqueue(
                     new Callback() {
                         @Override
@@ -154,7 +156,6 @@ public class MainActivity extends AppCompatActivity {
                         public void onResponse(@NonNull Call call, @NonNull Response response) {
                             try (ResponseBody body = response.body()) {
                                 int responseCode = response.code();
-                                middleware.d("Response", body.toString());
                                 httpResponse.postValue("" + responseCode);
                                 workflow.end();
                             }
@@ -165,6 +166,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void makeRawCall(String url) {
         Call call = okHttpClient.newCall(new Request.Builder().url(url).get().build());
+        middleware.d("HTTP", "HTTP CALL STARTED " + url);
+        middleware.d("HTTP", "HEADERS : " + call.request().headers().toString());
         call.enqueue(
                 new Callback() {
                     @Override

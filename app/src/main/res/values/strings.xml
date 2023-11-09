@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">Middleware RUM</string>
+    <string name="make_http_call">MAKE HTTP CALL</string>
+    <string name="crash">CRASH</string>
+    <string name="webview">WEBVIEW</string>
+    <string name="worker">WORKER</string>
+    <string name="custom_rum_event">CUSTOM RUM EVENT</string>
 </resources>

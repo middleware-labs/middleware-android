@@ -17,7 +17,7 @@ class NoOpMiddleware extends Middleware {
     // passing null values here is fine, they'll never get used anyway
     @SuppressWarnings("NullAway")
     private NoOpMiddleware() {
-        super(OpenTelemetryRum.noop(), null);
+        super(OpenTelemetryRum.noop(), null, null);
     }
 
     @Override

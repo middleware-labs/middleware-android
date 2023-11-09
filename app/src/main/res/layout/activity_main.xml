@@ -1,4 +1,4 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -6,38 +6,61 @@
     android:paddingLeft="16dp"
     android:paddingRight="16dp">
 
+    <ImageView
+        android:id="@+id/imageView"
+        android:layout_width="128dp"
+        android:layout_height="256dp"
+        android:layout_centerHorizontal="true"
+        app:srcCompat="@drawable/_1" />
+
     <Button
         android:id="@+id/http_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="MAKE HTTP CALL" />
+        android:layout_below="@id/imageView"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="16dp"
+        android:text="@string/make_http_call" />
 
     <Button
         android:id="@+id/crash_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="CRASH"
+        android:layout_below="@id/http_button"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="16dp"
+        android:text="@string/crash"
         app:tint="#ff0000" />
 
     <Button
         android:id="@+id/web_view_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_below="@id/crash_button"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="16dp"
         android:drawableTint="#ff0000"
-        android:text="WEBVIEW" />
+        android:text="@string/webview" />
 
     <Button
         android:id="@+id/worker_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="WORKER"
+        android:layout_below="@id/web_view_button"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="16dp"
+        android:text="@string/worker"
         app:tint="#ff0000" />
 
     <Button
         android:id="@+id/custom_event_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="CUSTOM RUM EVENT"
+        android:layout_below="@id/worker_button"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="16dp"
+        android:text="@string/custom_rum_event"
         app:tint="#ff0000" />
 
-</LinearLayout>
+
+</RelativeLayout>

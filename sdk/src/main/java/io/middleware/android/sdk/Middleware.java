@@ -24,6 +24,7 @@ import java.util.function.Function;
 
 import io.middleware.android.sdk.builders.MiddlewareBuilder;
 import io.middleware.android.sdk.core.RumInitializer;
+import io.middleware.android.sdk.core.RumSetup;
 import io.middleware.android.sdk.core.models.NativeRumSessionId;
 import io.middleware.android.sdk.extractors.RumResponseAttributesExtractor;
 import io.middleware.android.sdk.interfaces.IMiddleware;
@@ -40,6 +41,7 @@ import io.opentelemetry.api.logs.Logger;
 import io.opentelemetry.api.logs.Severity;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.instrumentation.okhttp.v3_0.OkHttpTelemetry;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
@@ -55,6 +57,8 @@ public class Middleware implements IMiddleware {
     private static Middleware INSTANCE;
     private static Logger LOGGER;
     private final OpenTelemetryRum openTelemetryRum;
+
+    private final RumSetup middlewareRum;
     private final GlobalAttributesSpanAppender globalAttributes;
     private static RumInitializer rumInitializer;
 
@@ -63,8 +67,9 @@ public class Middleware implements IMiddleware {
         startupTimer.detectBackgroundStart(handler);
     }
 
-    public Middleware(OpenTelemetryRum openTelemetryRum, GlobalAttributesSpanAppender globalAttributes) {
+    public Middleware(OpenTelemetryRum openTelemetryRum, RumSetup middlewareRum, GlobalAttributesSpanAppender globalAttributes) {
         this.openTelemetryRum = openTelemetryRum;
+        this.middlewareRum = middlewareRum;
         this.globalAttributes = globalAttributes;
     }
 
@@ -162,6 +167,11 @@ public class Middleware implements IMiddleware {
         return openTelemetryRum.getOpenTelemetry();
     }
 
+    private RumSetup getMiddlewareRum() {
+        return middlewareRum;
+    }
+
+
     /**
      * Get the Middleware Session ID associated with this instance of the RUM instrumentation library.
      * Note: this value can change throughout the lifetime of an application instance, so it is
@@ -194,6 +204,9 @@ public class Middleware implements IMiddleware {
      */
     @Override
     public void addEvent(String name, Attributes attributes) {
+        if (getMiddlewareRum() != null) {
+            attributes = middlewareRum.modifyEventAttributes(name, attributes);
+        }
         getTracer().spanBuilder(name).setAllAttributes(attributes).startSpan().end();
     }
 
@@ -205,11 +218,13 @@ public class Middleware implements IMiddleware {
      */
     @Override
     public Span startWorkflow(String workflowName) {
+
         return getTracer()
                 .spanBuilder(workflowName)
                 .setAttribute(WORKFLOW_NAME_KEY, workflowName)
                 .startSpan();
     }
+
 
     /**
      * Add a custom exception to RUM monitoring. This can be useful for tracking custom error
@@ -393,15 +408,12 @@ public class Middleware implements IMiddleware {
     }
 
     private void log(String TAG, String message, Severity severity) {
-        Span span = getTracer().spanBuilder(TAG).startSpan();
-        try (Scope ignored = span.makeCurrent()) {
-            LOGGER.logRecordBuilder()
-                    .setSeverity(severity)
-                    .setSeverityText(severity.name())
-                    .setBody(message)
-                    .setAttribute(AttributeKey.stringKey("TAG"), TAG)
-                    .emit();
-        }
-        span.end();
+        LOGGER.logRecordBuilder()
+                .setSeverity(severity)
+                .setSeverityText(severity.name())
+                .setBody(message)
+                .setAttribute(AttributeKey.stringKey("TAG"), TAG)
+                .emit();
+
     }
 }

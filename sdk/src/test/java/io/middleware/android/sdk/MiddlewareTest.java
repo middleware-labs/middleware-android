@@ -29,6 +29,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 
 import io.middleware.android.sdk.builders.MiddlewareBuilder;
+import io.middleware.android.sdk.core.RumSetup;
 import io.middleware.android.sdk.core.models.NativeRumSessionId;
 import io.opentelemetry.android.GlobalAttributesSpanAppender;
 import io.opentelemetry.android.OpenTelemetryRum;
@@ -51,6 +52,8 @@ public class MiddlewareTest {
     final OpenTelemetryExtension openTelemetryExtension = OpenTelemetryExtension.create();
     @Mock
     private OpenTelemetryRum openTelemetryRum;
+    @Mock
+    private RumSetup rumSetup;
     @Mock
     private GlobalAttributesSpanAppender globalAttributes;
     private MiddlewareBuilder middlewareBuilder;
@@ -110,7 +113,7 @@ public class MiddlewareTest {
     void addEvent() {
         when(openTelemetryRum.getOpenTelemetry()).thenReturn(openTelemetryExtension.getOpenTelemetry());
 
-        Middleware middleware = new Middleware(openTelemetryRum, globalAttributes);
+        Middleware middleware = new Middleware(openTelemetryRum, null, globalAttributes);
 
         Attributes attributes = Attributes.of(stringKey("one"), "1", longKey("two"), 2L);
         middleware.addEvent("foo", attributes);
@@ -134,7 +137,7 @@ public class MiddlewareTest {
 
         when(openTelemetryRum.getOpenTelemetry()).thenReturn(testSdk);
 
-        Middleware middleware = new Middleware(openTelemetryRum, globalAttributes);
+        Middleware middleware = new Middleware(openTelemetryRum, rumSetup, globalAttributes);
 
         NullPointerException exception = new NullPointerException("Oops");
         Attributes attributes = Attributes.of(stringKey("one"), "1", longKey("two"), 2L);

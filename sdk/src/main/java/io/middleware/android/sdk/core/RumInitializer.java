@@ -65,7 +65,6 @@ public class RumInitializer implements IRum {
         rumSetup.setMetrics(builder.target, middlewareResource);
         rumSetup.setTraces(builder.target, middlewareResource);
         rumSetup.setLogs(builder.target, middlewareResource);
-        rumSetup.setLoggingSpanExporter();
         rumSetup.setPropagators();
 
         if (builder.isSlowRenderingDetectionEnabled()) {
@@ -85,7 +84,7 @@ public class RumInitializer implements IRum {
         }
         rumSetup.setLifecycleInstrumentations(visibleScreenTracker, appStartupTimer);
         OpenTelemetryRum openTelemetryRum = rumSetup.build();
-        return new Middleware(openTelemetryRum, globalAttributesSpanAppender);
+        return new Middleware(openTelemetryRum, rumSetup, globalAttributesSpanAppender);
     }
 
     @SuppressLint("ObsoleteSdkInt")

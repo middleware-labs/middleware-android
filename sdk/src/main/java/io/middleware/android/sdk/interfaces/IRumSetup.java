@@ -9,6 +9,7 @@ import io.opentelemetry.android.OpenTelemetryRum;
 import io.opentelemetry.android.instrumentation.activity.VisibleScreenTracker;
 import io.opentelemetry.android.instrumentation.network.CurrentNetworkProvider;
 import io.opentelemetry.android.instrumentation.startup.AppStartupTimer;
+import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.sdk.resources.Resource;
 
 public interface IRumSetup {
@@ -21,6 +22,7 @@ public interface IRumSetup {
     void setLoggingSpanExporter();
 
     void setGlobalAttributes(GlobalAttributesSpanAppender globalAttributesSpanAppender);
+
     void setScreenAttributes(VisibleScreenTracker visibleScreenTracker);
 
     void setNetworkAttributes(CurrentNetworkProvider currentNetworkProvider);
@@ -38,6 +40,8 @@ public interface IRumSetup {
     void setLifecycleInstrumentations(VisibleScreenTracker visibleScreenTracker, AppStartupTimer appStartupTimer);
 
     void mergeResource(Resource middlewareResource);
+
+    Attributes modifyEventAttributes(String eventName, Attributes attributes);
 
     OpenTelemetryRum build();
 }

@@ -14,6 +14,9 @@ import java.time.Duration;
 import java.util.function.Function;
 
 import io.middleware.android.sdk.core.models.ScreenAttributesAppender;
+import io.middleware.android.sdk.exporters.MiddlewareLogsExporter;
+import io.middleware.android.sdk.exporters.MiddlewareMetricsExporter;
+import io.middleware.android.sdk.exporters.MiddlewareSpanExporter;
 import io.middleware.android.sdk.extractors.CrashComponentExtractor;
 import io.middleware.android.sdk.extractors.MiddlewareScreenNameExtractor;
 import io.middleware.android.sdk.interfaces.IRumSetup;
@@ -30,6 +33,7 @@ import io.opentelemetry.android.instrumentation.network.NetworkAttributesSpanApp
 import io.opentelemetry.android.instrumentation.network.NetworkChangeMonitor;
 import io.opentelemetry.android.instrumentation.slowrendering.SlowRenderingDetector;
 import io.opentelemetry.android.instrumentation.startup.AppStartupTimer;
+import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.propagation.TextMapPropagator;
 import io.opentelemetry.exporter.logging.LoggingSpanExporter;
@@ -56,13 +60,15 @@ public class RumSetup implements IRumSetup {
             sdkMeterProviderBuilder.addResource(middlewareResource);
             sdkMeterProviderBuilder.registerMetricReader(
                     PeriodicMetricReader.create(
-                            OtlpHttpMetricExporter
-                                    .builder()
-                                    .setEndpoint(baseEndpoint + "/v1/metrics")
-                                    .setTimeout(Duration.ofMillis(10000))
-                                    .addHeader("Content-Type", "application/json")
-                                    .addHeader("Access-Control-Allow-Headers", "*")
-                                    .build()
+                            new MiddlewareMetricsExporter(
+                                    OtlpHttpMetricExporter
+                                            .builder()
+                                            .setEndpoint(baseEndpoint + "/v1/metrics")
+                                            .setTimeout(Duration.ofMillis(10000))
+                                            .addHeader("Content-Type", "application/json")
+                                            .addHeader("Access-Control-Allow-Headers", "*")
+                                            .build()
+                            )
                     ));
             return sdkMeterProviderBuilder;
         });
@@ -74,13 +80,17 @@ public class RumSetup implements IRumSetup {
             sdkTracerProviderBuilder.addResource(middlewareResource);
             sdkTracerProviderBuilder.addSpanProcessor(
                     BatchSpanProcessor
-                            .builder(OtlpHttpSpanExporter
-                                    .builder()
-                                    .setEndpoint(target + "/v1/traces")
-                                    .setTimeout(Duration.ofMillis(10000))
-                                    .addHeader("Content-Type", "application/json")
-                                    .addHeader("Access-Control-Allow-Headers", "*")
-                                    .build())
+                            .builder(
+                                    new MiddlewareSpanExporter(
+                                            OtlpHttpSpanExporter
+                                                    .builder()
+                                                    .setEndpoint(target + "/v1/traces")
+                                                    .setTimeout(Duration.ofMillis(10000))
+                                                    .addHeader("Content-Type", "application/json")
+                                                    .addHeader("Access-Control-Allow-Headers", "*")
+                                                    .build()
+                                    )
+                            )
                             .build());
 
             return sdkTracerProviderBuilder;
@@ -92,12 +102,15 @@ public class RumSetup implements IRumSetup {
         openTelemetryRumBuilder.addLoggerProviderCustomizer((sdkLoggerProviderBuilder, application1) -> {
             sdkLoggerProviderBuilder.setResource(middlewareResource);
             sdkLoggerProviderBuilder.addLogRecordProcessor(SimpleLogRecordProcessor
-                    .create(OtlpHttpLogRecordExporter
-                            .builder()
-                            .setEndpoint(target + "/v1/logs")
-                            .addHeader("Content-Type", "application/json")
-                            .addHeader("Access-Control-Allow-Headers", "*")
-                            .build())
+                    .create(new MiddlewareLogsExporter(
+                                    OtlpHttpLogRecordExporter
+                                            .builder()
+                                            .setEndpoint(target + "/v1/logs")
+                                            .addHeader("Content-Type", "application/json")
+                                            .addHeader("Access-Control-Allow-Headers", "*")
+                                            .build()
+                            )
+                    )
             );
             return sdkLoggerProviderBuilder;
         });
@@ -225,6 +238,17 @@ public class RumSetup implements IRumSetup {
     @Override
     public void mergeResource(Resource middlewareResource) {
         openTelemetryRumBuilder.mergeResource(middlewareResource);
+    }
+
+    @Override
+    public Attributes modifyEventAttributes(String eventName, Attributes attributes) {
+        Attributes newAttributes = attributes;
+        if (eventName.toLowerCase().contains("click")) {
+            newAttributes = newAttributes.toBuilder()
+                    .put("event.type", "click")
+                    .build();
+        }
+        return newAttributes;
     }
 
     @Override
