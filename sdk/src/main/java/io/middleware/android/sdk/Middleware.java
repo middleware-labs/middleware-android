@@ -101,7 +101,6 @@ public class Middleware implements IMiddleware {
                 "Middleware RUM monitoring initialized with session ID: "
                         + INSTANCE.getRumSessionId());
 
-
         return INSTANCE;
     }
 

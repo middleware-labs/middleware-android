@@ -52,7 +52,7 @@ public class MainActivity extends AppCompatActivity {
             middleware.addEvent("click", Attributes.empty());
             Span workflow = middleware.startWorkflow("MAKE HTTP CUSTOM CALL");
             makeCall("http://pmrum.o11ystore.com/?user=me&pass=secret123secret", workflow);
-            makeRawCall("https://f40a-45-64-14-227.ngrok-free.app/v1/todos-all");
+            makeRawCall("https://demo.mw.dev/api/products?currencyCode=USD");
             middleware.setGlobalAttribute(AttributeKey.longKey("customerId"), 123456L);
             count++;
             middleware.d("BUTTONS", "User tapped the HTTP Call Button " + count + " times");

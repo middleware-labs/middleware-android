@@ -5,6 +5,9 @@ plugins {
 android {
     namespace 'io.middleware.android.sample'
     compileSdk 34
+    def secretPropertiesFile = rootProject.file("secrets.properties")
+    def secretProperties = new Properties()
+    secretProperties.load(new FileInputStream(secretPropertiesFile))
 
     defaultConfig {
         applicationId "io.middleware.android.sample"
@@ -13,8 +16,23 @@ android {
         versionCode 1
         versionName "1.0"
 
+
+        buildConfigField(
+                "String",
+                "TARGET",
+                secretProperties['TARGET']
+        )
+        buildConfigField(
+                "String",
+                "ACCESS_KEY",
+                secretProperties['ACCESS_KEY']
+        )
+        buildFeatures {
+            buildConfig true
+        }
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
+
 
     buildTypes {
         release {
