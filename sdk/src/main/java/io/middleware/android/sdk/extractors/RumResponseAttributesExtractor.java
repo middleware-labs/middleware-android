@@ -1,6 +1,7 @@
 package io.middleware.android.sdk.extractors;
 
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_KEY;
+import static io.middleware.android.sdk.utils.Constants.EVENT_TYPE;
 import static io.middleware.android.sdk.utils.Constants.LINK_PARENT_SPAN_ID_KEY;
 import static io.middleware.android.sdk.utils.Constants.LINK_SPAN_ID_KEY;
 import static io.middleware.android.sdk.utils.Constants.LINK_TRACE_ID_KEY;
@@ -23,6 +24,7 @@ public class RumResponseAttributesExtractor implements AttributesExtractor<Reque
     @Override
     public void onStart(AttributesBuilder attributes, Context parentContext, Request request) {
         attributes.put(COMPONENT_KEY, "http");
+        attributes.put(EVENT_TYPE, "fetch");
     }
 
     @Override
@@ -43,7 +45,6 @@ public class RumResponseAttributesExtractor implements AttributesExtractor<Reque
         if (ids.length == 2) {
             attributes.put(LINK_TRACE_ID_KEY, ids[0]);
             attributes.put(LINK_SPAN_ID_KEY, ids[1]);
-            attributes.put(LINK_PARENT_SPAN_ID_KEY, ids[2]);
         }
     }
 }

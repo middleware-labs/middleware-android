@@ -12,6 +12,7 @@ public final class Constants {
     public static final Duration DEFAULT_SLOW_RENDERING_DETECTION_POLL_INTERVAL =
             Duration.ofSeconds(1);
     public static final AttributeKey<String> COMPONENT_KEY = AttributeKey.stringKey("component");
+    public static final AttributeKey<String> EVENT_TYPE = AttributeKey.stringKey("event.type");
     public static final AttributeKey<String> ERROR_TYPE_KEY = stringKey("error.type");
     public static final AttributeKey<String> ERROR_MESSAGE_KEY = stringKey("error.message");
     public static final AttributeKey<String> WORKFLOW_NAME_KEY = stringKey("workflow.name");
