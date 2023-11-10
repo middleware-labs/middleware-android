@@ -56,7 +56,7 @@ class NoOpMiddleware extends Middleware {
     }
 
     @Override
-    void flushSpans() {
+    public void flushSpans() {
         // no-op
     }
 }

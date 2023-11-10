@@ -3,9 +3,14 @@ package io.middleware.android.sdk.utils;
 import static io.opentelemetry.api.common.AttributeKey.doubleKey;
 import static io.opentelemetry.api.common.AttributeKey.stringKey;
 
+import java.time.Duration;
+
 import io.opentelemetry.api.common.AttributeKey;
 
 public final class Constants {
+
+    public static final Duration DEFAULT_SLOW_RENDERING_DETECTION_POLL_INTERVAL =
+            Duration.ofSeconds(1);
     public static final AttributeKey<String> COMPONENT_KEY = AttributeKey.stringKey("component");
     public static final AttributeKey<String> ERROR_TYPE_KEY = stringKey("error.type");
     public static final AttributeKey<String> ERROR_MESSAGE_KEY = stringKey("error.message");

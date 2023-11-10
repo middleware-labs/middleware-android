@@ -90,22 +90,12 @@ public class Middleware implements IMiddleware {
             return INSTANCE;
         }
 
-        if (builder.isSubprocessInstrumentationDisabled() && builder.isSubprocess) {
-            INSTANCE = Middleware.noop();
-        } else {
-            rumInitializer = new RumInitializer(builder, application, startupTimer);
-            INSTANCE = rumInitializer.initialize(currentNetworkProviderFactory, Looper.getMainLooper());
-        }
-
+        rumInitializer = new RumInitializer(builder, application, startupTimer);
+        INSTANCE = rumInitializer.initialize(currentNetworkProviderFactory, Looper.getMainLooper());
         LOGGER = INSTANCE.getOpenTelemetry().getLogsBridge()
                 .loggerBuilder(builder.serviceName)
                 .build();
-
-        Log.i(
-                LOG_TAG,
-                "Middleware RUM monitoring initialized with session ID: "
-                        + INSTANCE.getRumSessionId());
-
+        Log.i(LOG_TAG, "Middleware RUM monitoring initialized with session ID: " + INSTANCE.getRumSessionId());
         return INSTANCE;
     }
 
@@ -125,17 +115,6 @@ public class Middleware implements IMiddleware {
             return NoOpMiddleware.INSTANCE;
         }
         return INSTANCE;
-    }
-
-    /**
-     * Initialize a no-op version of the Middleware API, including the instance of OpenTelemetry that
-     * is available. This can be useful for testing, or configuring your app without RUM enabled,
-     * but still using the APIs.
-     *
-     * @return A no-op instance of {@link Middleware}
-     */
-    public static Middleware noop() {
-        return NoOpMiddleware.INSTANCE;
     }
 
     /**
@@ -181,7 +160,7 @@ public class Middleware implements IMiddleware {
         return openTelemetryRum.getRumSessionId();
     }
 
-
+    //NOTE: This method is not used as of now will be used in future purposes.
     private void addRumEvent(String name, Attributes attributes) {
         if (isInitialized()) {
             INSTANCE.sendRumEvent(name, attributes);
@@ -296,7 +275,7 @@ public class Middleware implements IMiddleware {
         INSTANCE = null;
     }
 
-    void flushSpans() {
+    public void flushSpans() {
         OpenTelemetry openTelemetry = getOpenTelemetry();
         if (openTelemetry instanceof OpenTelemetrySdk) {
             ((OpenTelemetrySdk) openTelemetry)

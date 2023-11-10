@@ -17,8 +17,6 @@ public class SampleApplication extends Application {
                 .setRumAccessToken(BuildConfig.ACCESS_KEY)
                 .setSlowRenderingDetectionPollInterval(Duration.ofMillis(1000))
                 .setDeploymentEnvironment("PROD")
-                .enableDebug()
-                .enableReactNativeSupport()
                 .build(this);
     }
 }

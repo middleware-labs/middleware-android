@@ -65,6 +65,9 @@ public class RumInitializer implements IRum {
         rumSetup.setMetrics(builder.target, middlewareResource);
         rumSetup.setTraces(builder.target, middlewareResource);
         rumSetup.setLogs(builder.target, middlewareResource);
+        if (builder.isDebugEnabled()) {
+            rumSetup.setLoggingSpanExporter();
+        }
         rumSetup.setPropagators();
 
         if (builder.isSlowRenderingDetectionEnabled()) {
@@ -83,7 +86,7 @@ public class RumInitializer implements IRum {
             rumSetup.setCrashReporter();
         }
         rumSetup.setLifecycleInstrumentations(visibleScreenTracker, appStartupTimer);
-        OpenTelemetryRum openTelemetryRum = rumSetup.build();
+        final OpenTelemetryRum openTelemetryRum = rumSetup.build();
         return new Middleware(openTelemetryRum, rumSetup, globalAttributesSpanAppender);
     }
 
@@ -110,7 +113,7 @@ public class RumInitializer implements IRum {
                 .platform(String.format("%s %s", Build.MANUFACTURER, Build.MODEL))
                 .build();
 
-        Rum rum = new Rum();
+        final Rum rum = new Rum();
         rum.setEventData(new RumMessage[]{rumMessage});
         final RumData rumData = new RumData();
         rumData.setAccessToken(builder.rumAccessToken);
@@ -136,7 +139,6 @@ public class RumInitializer implements IRum {
         resourceBuilder.put("mw_agent", true);
         resourceBuilder.put("mw.account_key", builder.rumAccessToken);
         resourceBuilder.put("browser.trace", true);
-        resourceBuilder.put("session.id", builder.sessionId);
         resourceBuilder.put(BROWSER_MOBILE.getKey(), true);
         return resourceBuilder.build();
     }

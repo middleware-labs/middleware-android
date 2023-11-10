@@ -1,5 +1,6 @@
 package io.middleware.android.sdk.builders;
 
+import static io.middleware.android.sdk.utils.Constants.DEFAULT_SLOW_RENDERING_DETECTION_POLL_INTERVAL;
 import static io.middleware.android.sdk.utils.Constants.LOG_TAG;
 
 import android.app.Application;
@@ -15,34 +16,17 @@ import io.middleware.android.sdk.core.models.ConfigFlags;
 import io.opentelemetry.android.instrumentation.network.CurrentNetworkProvider;
 import io.opentelemetry.api.common.Attributes;
 
-/**
- * A builder of {@link Middleware}.
- */
 public final class MiddlewareBuilder {
 
-    private static final Duration DEFAULT_SLOW_RENDERING_DETECTION_POLL_INTERVAL =
-            Duration.ofSeconds(1);
+    @Nullable
+    public String projectName;
+    @Nullable
+    public String serviceName;
+    @Nullable
+    public String target;
 
     @Nullable
-    public
-    String projectName;
-    @Nullable
-    public
-    String serviceName;
-    @Nullable
-    public
-    String target;
-
-    @Nullable
-    public
-    String rumAccessToken;
-
-    @Nullable
-    Application application;
-
-    @Nullable
-    public
-    String sessionId;
+    public String rumAccessToken;
 
     private final ConfigFlags configFlags = new ConfigFlags();
 
@@ -50,9 +34,6 @@ public final class MiddlewareBuilder {
     public Attributes globalAttributes = Attributes.empty();
     @Nullable
     public String deploymentEnvironment;
-    boolean sessionBasedSamplerEnabled = false;
-    double sessionBasedSamplerRatio = 1.0;
-    public boolean isSubprocess = false;
 
     /**
      * Sets the application name that will be used to identify your application in the Middleware RUM
@@ -67,11 +48,6 @@ public final class MiddlewareBuilder {
 
     public MiddlewareBuilder setServiceName(String serviceName) {
         this.serviceName = serviceName;
-        return this;
-    }
-
-    protected MiddlewareBuilder setSessionId(String sessionId) {
-        this.sessionId = sessionId;
         return this;
     }
 
@@ -96,40 +72,12 @@ public final class MiddlewareBuilder {
     }
 
     /**
-     * Enables debugging information to be emitted from the RUM library.
-     *
-     * <p>This feature is disabled by default. You can enable it by calling this method.
+     * Enables verbose logging. Logs will be exported in traces if enabled.
      *
      * @return {@code this}
      */
     public MiddlewareBuilder enableDebug() {
         configFlags.enableDebug();
-        return this;
-    }
-
-    /**
-     * Enables the storage-based buffering of telemetry. If this feature is enabled, telemetry is
-     * buffered in the local storage until it is exported; otherwise, it is buffered in memory and
-     * throttled.
-     *
-     * <p>This feature is disabled by default. You can enable it by calling this method.
-     *
-     * @return {@code this}
-     */
-    public MiddlewareBuilder enableDiskBuffering() {
-        configFlags.enableDiskBuffering();
-        return this;
-    }
-
-    /**
-     * Enables support for the React Native instrumentation.
-     *
-     * <p>This feature is disabled by default. You can enable it by calling this method.
-     *
-     * @return {@code this}
-     */
-    public MiddlewareBuilder enableReactNativeSupport() {
-        configFlags.enableReactNativeSupport();
         return this;
     }
 
@@ -232,29 +180,11 @@ public final class MiddlewareBuilder {
      * this method does not initialize a new one and simply returns the existing instance.
      */
     public Middleware build(Application application) {
-        if (rumAccessToken == null || target == null || projectName == null) {
+        if (rumAccessToken == null || target == null || projectName == null || serviceName == null) {
             throw new IllegalStateException(
-                    "You must provide a rumAccessToken, target, and an projectName to create a valid Config instance.");
+                    "You must provide a rumAccessToken, target, projectName and an serviceName to create a valid Config instance.");
         }
         return Middleware.initialize(this, application, CurrentNetworkProvider::createAndStart);
-    }
-
-    /***
-     * Enable deffer instrumentation when app started from background start until
-     * app is brought to foreground, otherwise instrumentation data will never be
-     * sent to exporter.
-     *
-     * <p>Use case : Track only app session started by user opening app</p>
-     * @return {@code this}
-     */
-    public MiddlewareBuilder enableBackgroundInstrumentationDeferredUntilForeground() {
-        configFlags.enableBackgroundInstrumentationDeferredUntilForeground();
-        return this;
-    }
-
-    // one day maybe these can use kotlin delegation
-    ConfigFlags getConfigFlags() {
-        return configFlags;
     }
 
     public boolean isAnrDetectionEnabled() {
@@ -273,19 +203,7 @@ public final class MiddlewareBuilder {
         return configFlags.isCrashReportingEnabled();
     }
 
-    boolean isDiskBufferingEnabled() {
-        return configFlags.isDiskBufferingEnabled();
-    }
-
-    boolean isReactNativeSupportEnabled() {
-        return configFlags.isReactNativeSupportEnabled();
-    }
-
-    public boolean isSubprocessInstrumentationDisabled() {
-        return !configFlags.isSubprocessInstrumentationEnabled();
-    }
-
-    boolean isBackgroundInstrumentationDeferredUntilForeground() {
-        return configFlags.isBackgroundInstrumentationDeferredUntilForeground();
+    public boolean isDebugEnabled() {
+        return configFlags.isDebugEnabled();
     }
 }
