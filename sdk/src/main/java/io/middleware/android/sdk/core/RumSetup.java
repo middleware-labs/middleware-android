@@ -4,6 +4,7 @@ import static io.middleware.android.sdk.utils.Constants.COMPONENT_APPSTART;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_ERROR;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_KEY;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_UI;
+import static io.middleware.android.sdk.utils.Constants.EVENT_TYPE;
 import static io.opentelemetry.android.RumConstants.APP_START_SPAN_NAME;
 import static io.opentelemetry.instrumentation.api.instrumenter.AttributesExtractor.constant;
 
@@ -222,6 +223,7 @@ public class RumSetup implements IRumSetup {
                                                                 ? COMPONENT_APPSTART
                                                                 : COMPONENT_UI;
                                                 return tracer.spanBuilder(spanName)
+                                                        .setAttribute(EVENT_TYPE, "app_activity")
                                                         .setAttribute(COMPONENT_KEY, component);
                                             };
                     AndroidLifecycleInstrumentation instrumentation =
