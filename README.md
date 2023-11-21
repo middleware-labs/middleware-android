@@ -1,18 +1,40 @@
 # Middleware Instrumentation Android SDK
 
 ## Features
-- Android Activity & Fragment lifecycle events
-- Crash Reporting
-- ANR Dectection
-- Network Change Detection
-- Slow / Freeze render detection
-- OkHttp3 instrumention for monitoring http events
-- Middleware APIs for sending custom events & record exceptions
+
 - Access to OpenTelemetry APIs
+- OkHttp3 instrumentation for monitoring HTTP events
+- Middleware APIs for sending custom events & recording exceptions
+- Slow / Freeze render detection
 - Custom logging
+- Network Change Detection
+- ANR Detection
+- Crash Reporting
+- Android Activity & Fragment lifecycle events
+
+## Requirements
+
+- Android Minimum SDK Version : 26
+
+## Pre-requisites
+
+Before using the Middleware Android SDK, ensure you have:
+
+An account with Middleware to obtain the RUM (Real User Monitoring) access token and target URL.
+Visit installation docs section of Real-User-Monitoring from Middleware dashboard.
+
+### Steps
+
+1. Create New Application
+2. Obtain the accountKey & target once application is created.
+
+## Getting Started
+
+The Middleware Android SDK provides instrumentation for monitoring various aspects of your Android
+application. With this SDK, you can track and analyze the features listed above, viewing the results
+in the Middleware RUM section and RUM dashboard.
 
 ## Setup
-
 
 ### Install Middleware Android SDK
 
@@ -149,8 +171,9 @@ private Call.Factory buildOkHttpClient(Middleware middleware) {
 
 #### Global Attributes
 
-
-Global attributes are key-value pairs that are used for attaching the global information for the reported data. These values can be useful for custom or user specific tags that can be attached while sending data to Middleware.
+Global attributes are key-value pairs that are used for attaching the global information for the
+reported data. These values can be useful for custom or user specific tags that can be attached
+while sending data to Middleware.
 
 ##### How to set global attributes?
 
@@ -165,26 +188,31 @@ Middleware.builder()
 
 #### Custom Events
 
-You can also send custom events and workflows using <code>addEvent</code> and <code>startWorkflow</code> APIs respectively
+You can also send custom events and workflows using <code>addEvent</code> and <code>
+startWorkflow</code> APIs respectively
 
 ##### How to send custom event?
+
 ```java
 Middleware.getInstance().addEvent("You clicked on Button", BUTTON_ATTRIBUES);
 ```
 
 ##### How to start workflow?
+
 ```java
 Span loginWorkflow = Middleware.getInstance().startWorkflow("User Login Flow");
 ```
 
 ##### How to end workflow?
+
 ```java
 loginWorkflow.end();
 ```
 
 #### Configure error reporting
 
-You can report exceptions, errors and any messages using `addException(Throwable)` We will show this on our Middleware Dashboard.
+You can report exceptions, errors and any messages using `addException(Throwable)` We will show this
+on our Middleware Dashboard.
 
 ```java
 Middleware.getInstance().addException(new RuntimeException("Something went wrong!"), Attributes.empty())
@@ -192,7 +220,8 @@ Middleware.getInstance().addException(new RuntimeException("Something went wrong
 
 #### Custom Logs
 
-You can add custom logs such as debug, error, warn, info these logs will be shown on Middleware Logs Dashboard
+You can add custom logs such as debug, error, warn, info these logs will be shown on Middleware Logs
+Dashboard
 
 ```java
 Middleware logInstance = Middleware.getInstance();
