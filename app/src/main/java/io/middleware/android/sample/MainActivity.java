@@ -92,6 +92,21 @@ public class MainActivity extends AppCompatActivity {
             middleware.addEvent("rum_event", Attributes.of(stringKey("message"), "My First RUM EVENT"));
             Toast.makeText(getApplicationContext(), "Your Rum Event Successfully sent", Toast.LENGTH_SHORT).show();
         });
+
+        final Button anrButton = findViewById(R.id.anr_button);
+        anrButton.setOnClickListener(v -> {
+            final Span appFreezing = middleware.startWorkflow("App Freezing");
+            for (int i = 1; i <= 25; i++) {
+                try {
+                    Thread.sleep(1000);
+                    appFreezing.addEvent("Sleeping Count: " + i);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } finally {
+                    appFreezing.end();
+                }
+            }
+        });
     }
 
     private void crashFlowTrigger(Span workflow) {

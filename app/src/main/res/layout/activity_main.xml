@@ -62,5 +62,14 @@
         android:text="@string/custom_rum_event"
         app:tint="#ff0000" />
 
+    <Button
+        android:id="@+id/anr_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/custom_event_button"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="16dp"
+        android:text="@string/application_not_responding"
+        app:tint="#ff0000" />
 
 </RelativeLayout>
