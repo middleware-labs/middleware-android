@@ -1,0 +1,63 @@
+name: release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4.1.1
+      - name: Set up JDK 11 for running Gradle
+        uses: actions/setup-java@v3.13.0
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Grant Permission to Execute Gradle
+        run: chmod +x gradlew
+
+      - name: Build with Gradle
+        uses: gradle/gradle-build-action@v2
+        with:
+          arguments: build
+
+      - name: Publish Library
+        run: |
+          echo "Publishing library🚀"
+          ./gradlew publish --no-daemon --no-parallel
+          echo "Published✅"
+          
+          echo "Releasing repository...🚀"
+          ./gradlew closeAndReleaseRepository
+          echo "Released✅"
+        env:
+          ORG_GRADLE_PROJECT_VERSION_NAME: ${{ github.event.inputs.versionName }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_PASSPHRASE }}
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.OSSRH_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.OSSRH_PASSWORD }}
+
+      - name: Create and push tag
+        run: |
+          git config --global user.name "${{ github.actor }}"
+          git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+          git tag -a $TAG -m "Release v$TAG"
+          git push origin $TAG
+        env:
+          TAG: ${{ github.event.inputs.versionName }}
+
+      - name: Create Release on GitHub
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.event.inputs.versionName }}
+          release_name: ${{ github.event.inputs.versionName }}
+          draft: true
+          prerelease: false
