@@ -60,6 +60,7 @@ public class RumSetup implements IRumSetup {
         openTelemetryRumBuilder.addMeterProviderCustomizer((sdkMeterProviderBuilder, application1) -> {
             sdkMeterProviderBuilder.addResource(middlewareResource);
             sdkMeterProviderBuilder.registerMetricReader(
+
                     PeriodicMetricReader.create(
                             new MiddlewareMetricsExporter(
                                     OtlpHttpMetricExporter
@@ -167,6 +168,7 @@ public class RumSetup implements IRumSetup {
                 instrumentedApplication -> {
                     AnrDetector.builder()
                             .addAttributesExtractor(constant(COMPONENT_KEY, COMPONENT_ERROR))
+                            .addAttributesExtractor(constant(EVENT_TYPE, COMPONENT_ERROR))
                             .setMainLooper(mainLooper)
                             .build()
                             .installOn(instrumentedApplication);

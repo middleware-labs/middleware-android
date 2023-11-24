@@ -2,6 +2,7 @@ package io.middleware.android.sdk;
 
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_ERROR;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_KEY;
+import static io.middleware.android.sdk.utils.Constants.EVENT_TYPE;
 import static io.middleware.android.sdk.utils.Constants.LOCATION_LATITUDE_KEY;
 import static io.middleware.android.sdk.utils.Constants.LOCATION_LONGITUDE_KEY;
 import static io.middleware.android.sdk.utils.Constants.LOG_TAG;
@@ -235,6 +236,7 @@ public class Middleware implements IMiddleware {
                 .spanBuilder(throwable.getClass().getSimpleName())
                 .setAllAttributes(attributes)
                 .setAttribute(COMPONENT_KEY, COMPONENT_ERROR)
+                .setAttribute(EVENT_TYPE, COMPONENT_ERROR)
                 .startSpan()
                 .recordException(throwable)
                 .end();
