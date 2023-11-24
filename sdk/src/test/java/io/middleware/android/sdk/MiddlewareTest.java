@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_ERROR;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_KEY;
+import static io.middleware.android.sdk.utils.Constants.EVENT_TYPE;
 import static io.opentelemetry.api.common.AttributeKey.longKey;
 import static io.opentelemetry.api.common.AttributeKey.stringKey;
 import static io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions.assertThat;
@@ -150,6 +151,7 @@ public class MiddlewareTest {
                 .hasName("NullPointerException")
                 .hasAttributes(
                         attributes.toBuilder()
+                                .put(EVENT_TYPE, COMPONENT_ERROR)
                                 .put(COMPONENT_KEY, COMPONENT_ERROR)
                                 .build())
                 .hasException(exception);
