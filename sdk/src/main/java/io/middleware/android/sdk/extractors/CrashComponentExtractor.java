@@ -4,6 +4,7 @@ package io.middleware.android.sdk.extractors;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_CRASH;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_ERROR;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_KEY;
+import static io.middleware.android.sdk.utils.Constants.EVENT_TYPE;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -29,6 +30,7 @@ public final class CrashComponentExtractor implements AttributesExtractor<CrashD
                         ? COMPONENT_CRASH
                         : COMPONENT_ERROR;
         attributes.put(COMPONENT_KEY, component);
+        attributes.put(EVENT_TYPE, component);
     }
 
     @Override
