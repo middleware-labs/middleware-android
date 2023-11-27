@@ -3,6 +3,28 @@ plugins {
     id "com.vanniktech.maven.publish" version "0.25.3"
 }
 
+mavenPublishing {
+    coordinates("io.middleware.android", "sdk", "1.0.0")
+
+    pom {
+        name = "Middleware Android RUM SDK"
+        description = "Middleware Android RUM SDK"
+        inceptionYear = "2023"
+        url = "https://github.com/middleware-labs/middleware-android"
+        licenses {
+            license {
+                name = "The Apache License, Version 2.0"
+                url = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+                distribution = "http://www.apache.org/licenses/LICENSE-2.0.txt"
+            }
+        }
+        scm {
+            url = "https://github.com/username/mylibrary/"
+            connection = "scm:git:git://github.com/username/mylibrary.git"
+            developerConnection = "scm:git:ssh://git@github.com/username/mylibrary.git"
+        }
+    }
+}
 android {
     namespace 'io.middleware.android.sdk'
     compileSdk 34
@@ -27,6 +49,11 @@ android {
         unitTests.returnDefaultValues = true
         unitTests.all {
             useJUnitPlatform()
+        }
+    }
+    publishing {
+        singleVariant('release') {
+            withSourcesJar()
         }
     }
 }
