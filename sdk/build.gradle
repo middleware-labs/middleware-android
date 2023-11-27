@@ -51,11 +51,6 @@ android {
             useJUnitPlatform()
         }
     }
-    publishing {
-        singleVariant('release') {
-            withSourcesJar()
-        }
-    }
 }
 
 dependencies {
