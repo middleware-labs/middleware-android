@@ -31,6 +31,12 @@ android {
     }
 }
 
+signing {
+    def signingKey = System.getenv("GPG_SIGNING_KEY")
+    def signingPassphrase = System.getenv("GPG_PASSPHRASE")
+    useInMemoryPgpKeys(signingKey.chunked(64).joinToString("\n"), signingPassphrase)
+}
+
 dependencies {
     implementation platform("io.opentelemetry:opentelemetry-bom:1.31.0")
     implementation('io.opentelemetry:opentelemetry-api')
