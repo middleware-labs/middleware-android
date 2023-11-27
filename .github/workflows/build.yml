@@ -1,6 +1,10 @@
-name: Build SDK
+name: PR Build
 
-on: [pull_request]
+on:
+  pull_request:
+  push:
+    branches:
+      - main
 
 jobs:
   test:
@@ -20,3 +24,6 @@ jobs:
         uses: gradle/gradle-build-action@v2
         with:
           arguments: build
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3.1.4

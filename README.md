@@ -1,4 +1,17 @@
 # Middleware Instrumentation Android SDK
+---
+<p align="center">
+  <a href="https://maven-badges.herokuapp.com/maven-central/io.github.middleware-labs/android-sdk">
+    <img alt="Maven Central" src="https://img.shields.io/maven-central/v/io.github.middleware-labs/android-sdk?style=flat">
+  </a>  <a href="https://github.com/middleware-labs/middleware-android/releases">
+    <img alt="GitHub release (latest SemVer)" src="https://img.shields.io/github/v/release/middleware-labs/middleware-android?include_prereleases&style=flat">
+  </a>
+  <a href="https://github.com/middleware-labs/middleware-android/actions/workflows/build.yml">
+    <img alt="Build Status" src="https://img.shields.io/github/actions/workflow/status/middleware-labs/middleware-android/build.yml?branch=main&style=flat">
+  </a>
+</p>
+
+---
 
 ## Features
 
@@ -39,7 +52,7 @@ in the Middleware RUM section and RUM dashboard.
 ### Install Middleware Android SDK
 
 ```groovy
-implementation 'io.middleware.android:sdk:+'
+implementation 'io.github.middleware-labs:android-sdk:1.0.0'
 ```
 
 ### Configure of Middleware Android Instrumentation
