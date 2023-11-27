@@ -33,7 +33,7 @@ jobs:
           echo "Published✅"
           
           echo "Releasing repository...🚀"
-          ./gradlew closeAndReleaseRepository
+          ./gradlew closeAndReleaseRepository --repository iogithubmiddleware-labs-1042
           echo "Released✅"
         env:
           ORG_GRADLE_PROJECT_VERSION_NAME: ${{ github.event.inputs.versionName }}
