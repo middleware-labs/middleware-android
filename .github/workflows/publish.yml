@@ -30,12 +30,8 @@ jobs:
       - name: Publish Library
         run: |
           echo "Publishing library🚀"
-          ./gradlew publish --no-daemon --no-parallel
+          ./gradlew publish --no-daemon --no-parallel -PSONATYPE_AUTOMATIC_RELEASE=true
           echo "Published✅"
-
-          echo "Releasing repository...🚀"
-          ./gradlew closeAndReleaseRepository
-          echo "Released✅"
         env:
           ORG_GRADLE_PROJECT_VERSION_NAME: ${{ github.event.inputs.versionName }}
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.PGP_EXPORTED_ARMOR_KEY }}
