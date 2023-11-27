@@ -1,13 +1,13 @@
-name: Run tests
+name: Build SDK
 
-on: [push, pull_request]
+on: [pull_request]
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4.1.1
-      - name: Set up JDK 11 for running Gradle
+      - name: Set up Java 17 for running Gradle
         uses: actions/setup-java@v3.13.0
         with:
           distribution: temurin

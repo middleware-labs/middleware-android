@@ -1,9 +1,10 @@
 name: release
-
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      versionName:
+        description: 'Version Name'
+        required: true
 
 jobs:
   publish:
@@ -12,7 +13,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4.1.1
-      - name: Set up JDK 11 for running Gradle
+      - name: Set up Java 17 for running Gradle
         uses: actions/setup-java@v3.13.0
         with:
           distribution: temurin
@@ -55,9 +56,9 @@ jobs:
         id: create_release
         uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GHCR_TOKEN }}
         with:
           tag_name: ${{ github.event.inputs.versionName }}
           release_name: ${{ github.event.inputs.versionName }}
-          draft: true
+          draft: false
           prerelease: false
