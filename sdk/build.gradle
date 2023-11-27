@@ -19,9 +19,9 @@ mavenPublishing {
             }
         }
         scm {
-            url = "https://github.com/username/mylibrary/"
-            connection = "scm:git:git://github.com/username/mylibrary.git"
-            developerConnection = "scm:git:ssh://git@github.com/username/mylibrary.git"
+            url = "https://github.com/middleware-labs/middleware-android"
+            connection = "scm:git:git://github.com/middleware-labs/middleware-android.git"
+            developerConnection = "scm:git:ssh://git@github.com/middleware-labs/middleware-android.git"
         }
     }
 }
