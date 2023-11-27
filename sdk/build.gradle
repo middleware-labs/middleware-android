@@ -18,6 +18,13 @@ mavenPublishing {
                 distribution = "http://www.apache.org/licenses/LICENSE-2.0.txt"
             }
         }
+        developers {
+            developer {
+                id = "middleware-labs"
+                name = "Middleware"
+                url = "https://github.com/middleware-labs/"
+            }
+        }
         scm {
             url = "https://github.com/middleware-labs/middleware-android"
             connection = "scm:git:git://github.com/middleware-labs/middleware-android.git"
