@@ -4,21 +4,15 @@ import androidx.annotation.NonNull;
 
 public class ConfigFlags {
     private boolean debugEnabled = false;
-    private boolean diskBufferingEnabled = false;
+    private boolean activityLifecycleEnabled = true;
     private boolean reactNativeSupportEnabled = false;
     private boolean crashReportingEnabled = true;
     private boolean networkMonitorEnabled = true;
     private boolean anrDetectionEnabled = true;
     private boolean slowRenderingDetectionEnabled = true;
-    private boolean subprocessInstrumentationEnabled = true;
-    private boolean backgroundInstrumentationDeferredUntilForeground = false;
 
     public void enableDebug() {
         debugEnabled = true;
-    }
-
-    public void enableDiskBuffering() {
-        diskBufferingEnabled = true;
     }
 
     public void enableReactNativeSupport() {
@@ -41,24 +35,12 @@ public class ConfigFlags {
         slowRenderingDetectionEnabled = false;
     }
 
-    public void disableSubprocessInstrumentation() {
-        subprocessInstrumentationEnabled = false;
-    }
-
-    public void enableBackgroundInstrumentationDeferredUntilForeground() {
-        backgroundInstrumentationDeferredUntilForeground = true;
-    }
-
     public boolean isDebugEnabled() {
         return debugEnabled;
     }
 
-    public boolean isSubprocessInstrumentationEnabled() {
-        return subprocessInstrumentationEnabled;
-    }
-
-    public boolean isBackgroundInstrumentationDeferredUntilForeground() {
-        return backgroundInstrumentationDeferredUntilForeground;
+    public boolean isActivityLifecycleEnabled() {
+        return activityLifecycleEnabled;
     }
 
     public boolean isAnrDetectionEnabled() {
@@ -77,10 +59,6 @@ public class ConfigFlags {
         return crashReportingEnabled;
     }
 
-    public boolean isDiskBufferingEnabled() {
-        return diskBufferingEnabled;
-    }
-
     public boolean isReactNativeSupportEnabled() {
         return reactNativeSupportEnabled;
     }
@@ -90,6 +68,9 @@ public class ConfigFlags {
     public String toString() {
         return "[debug:"
                 + debugEnabled
+                + ","
+                + "activityLifecycle:"
+                + activityLifecycleEnabled
                 + ","
                 + "crashReporting:"
                 + crashReportingEnabled

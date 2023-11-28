@@ -27,7 +27,7 @@
 
 ## Requirements
 
-- Android Minimum SDK Version : 26
+- Android Minimum SDK Version : 21
 
 ## Pre-requisites
 

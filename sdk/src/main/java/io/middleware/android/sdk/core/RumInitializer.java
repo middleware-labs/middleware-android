@@ -2,6 +2,7 @@ package io.middleware.android.sdk.core;
 
 import static java.util.Objects.requireNonNull;
 import static io.middleware.android.sdk.utils.Constants.APP_NAME_KEY;
+import static io.middleware.android.sdk.utils.Constants.RUM_TRACER_NAME;
 import static io.opentelemetry.semconv.ResourceAttributes.BROWSER_MOBILE;
 import static io.opentelemetry.semconv.ResourceAttributes.DEPLOYMENT_ENVIRONMENT;
 import static io.opentelemetry.semconv.ResourceAttributes.SERVICE_NAME;
@@ -24,6 +25,7 @@ import java.util.function.Function;
 
 import io.middleware.android.sdk.Middleware;
 import io.middleware.android.sdk.builders.MiddlewareBuilder;
+import io.middleware.android.sdk.core.models.InitializationEvents;
 import io.middleware.android.sdk.core.models.RumData;
 import io.middleware.android.sdk.core.services.RumServiceManager;
 import io.middleware.android.sdk.interfaces.IRum;
@@ -44,49 +46,73 @@ public class RumInitializer implements IRum {
     private final MiddlewareBuilder builder;
     private final Application application;
     private final AppStartupTimer appStartupTimer;
+    private final InitializationEvents initializerEvent;
 
     public RumInitializer(MiddlewareBuilder builder, Application application, AppStartupTimer appStartupTimer) {
         this.builder = builder;
         this.application = application;
         this.appStartupTimer = appStartupTimer;
+        this.initializerEvent = new InitializationEvents(appStartupTimer);
     }
 
     @Override
     public Middleware initialize(Function<Application, CurrentNetworkProvider> currentNetworkProviderFactory, Looper mainLooper) {
+        initializerEvent.begin();
         VisibleScreenTracker visibleScreenTracker = new VisibleScreenTracker();
         GlobalAttributesSpanAppender globalAttributesSpanAppender = GlobalAttributesSpanAppender.create(builder.globalAttributes);
         final CurrentNetworkProvider currentNetworkProvider = currentNetworkProviderFactory.apply(application);
         final RumSetup rumSetup = new RumSetup(application);
         Resource middlewareResource = createMiddlewareResource();
         rumSetup.mergeResource(middlewareResource);
+        initializerEvent.emit("resourceInitialized");
         rumSetup.setGlobalAttributes(globalAttributesSpanAppender);
+        initializerEvent.emit("globalAttributesInitialized");
         rumSetup.setNetworkAttributes(currentNetworkProvider);
+        initializerEvent.emit("networkAttributesInitialized");
         rumSetup.setScreenAttributes(visibleScreenTracker);
+        initializerEvent.emit("screenAttributesInitialized");
         rumSetup.setMetrics(builder.target, middlewareResource);
+        initializerEvent.emit("metricsInitialized");
         rumSetup.setTraces(builder.target, middlewareResource);
+        initializerEvent.emit("tracesInitialized");
         rumSetup.setLogs(builder.target, middlewareResource);
+        initializerEvent.emit("logsInitialized");
         if (builder.isDebugEnabled()) {
             rumSetup.setLoggingSpanExporter();
+            initializerEvent.emit("loggingSpanExporterInitialized");
         }
         rumSetup.setPropagators();
+        initializerEvent.emit("propagatorsInitialized");
 
         if (builder.isSlowRenderingDetectionEnabled()) {
             rumSetup.setSlowRenderingDetector(builder.slowRenderingDetectionPollInterval);
+            initializerEvent.emit("slowRenderingInitialized");
         }
 
         if (builder.isNetworkMonitorEnabled()) {
             rumSetup.setNetworkMonitor(currentNetworkProvider);
+            initializerEvent.emit("networkChangeInitialized");
         }
 
         if (builder.isAnrDetectionEnabled()) {
             rumSetup.setAnrDetector(mainLooper);
+            initializerEvent.emit("anrDetectionInitialized");
         }
 
         if (builder.isCrashReportingEnabled()) {
             rumSetup.setCrashReporter();
+            initializerEvent.emit("crashReportingInitialized");
         }
-        rumSetup.setLifecycleInstrumentations(visibleScreenTracker, appStartupTimer);
+
+        if (builder.isActivityLifecycleEnabled()) {
+            rumSetup.setLifecycleInstrumentations(visibleScreenTracker, appStartupTimer);
+            initializerEvent.emit("activityLifecycleInitialized");
+        }
+
         final OpenTelemetryRum openTelemetryRum = rumSetup.build();
+        initializerEvent.recordInitializationSpans(
+                builder.getConfigFlags(),
+                openTelemetryRum.getOpenTelemetry().getTracer(RUM_TRACER_NAME));
         return new Middleware(openTelemetryRum, rumSetup, globalAttributesSpanAppender);
     }
 
