@@ -48,13 +48,13 @@ jobs:
         env:
           TAG: ${{ github.event.inputs.versionName }}
 
-      - name: Create Release on GitHub
-        id: create_release
-        uses: actions/create-release@v1
+      - name: Build Changelog
+        id: github_release
+        uses: mikepenz/release-changelog-builder-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Release
+        uses: mikepenz/action-gh-release@v0.2.0-a03
         with:
-          tag_name: ${{ github.event.inputs.versionName }}
-          release_name: ${{ github.event.inputs.versionName }}
-          draft: false
-          prerelease: false
+          body: ${{steps.github_release.outputs.changelog}}
