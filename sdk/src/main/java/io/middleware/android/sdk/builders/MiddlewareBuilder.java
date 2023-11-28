@@ -4,7 +4,6 @@ import static io.middleware.android.sdk.utils.Constants.DEFAULT_SLOW_RENDERING_D
 import static io.middleware.android.sdk.utils.Constants.LOG_TAG;
 
 import android.app.Application;
-import android.os.Looper;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -203,7 +202,15 @@ public final class MiddlewareBuilder {
         return configFlags.isCrashReportingEnabled();
     }
 
+    public boolean isActivityLifecycleEnabled() {
+        return configFlags.isActivityLifecycleEnabled();
+    }
+
     public boolean isDebugEnabled() {
         return configFlags.isDebugEnabled();
+    }
+
+    public ConfigFlags getConfigFlags() {
+        return configFlags;
     }
 }
