@@ -19,6 +19,7 @@ import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Calendar;
+import java.util.Objects;
 import java.util.TimeZone;
 import java.util.function.Function;
 
@@ -30,6 +31,7 @@ import io.middleware.android.sdk.core.services.RumServiceManager;
 import io.middleware.android.sdk.interfaces.IRum;
 import io.middleware.android.sdk.messages.Rum;
 import io.middleware.android.sdk.messages.RumMessage;
+import io.middleware.android.sdk.utils.RumUtil;
 import io.opentelemetry.android.GlobalAttributesSpanAppender;
 import io.opentelemetry.android.OpenTelemetryRum;
 import io.opentelemetry.android.instrumentation.activity.VisibleScreenTracker;
