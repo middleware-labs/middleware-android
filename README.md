@@ -52,7 +52,7 @@ in the Middleware RUM section and RUM dashboard.
 ### Install Middleware Android SDK
 
 ```groovy
-implementation 'io.github.middleware-labs:android-sdk:1.0.0'
+implementation 'io.github.middleware-labs:android-sdk:1.0.1'
 ```
 
 ### Configure of Middleware Android Instrumentation
