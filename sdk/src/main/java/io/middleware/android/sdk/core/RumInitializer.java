@@ -2,6 +2,7 @@ package io.middleware.android.sdk.core;
 
 import static java.util.Objects.requireNonNull;
 import static io.middleware.android.sdk.utils.Constants.APP_NAME_KEY;
+import static io.middleware.android.sdk.utils.Constants.BASE_ORIGIN;
 import static io.middleware.android.sdk.utils.Constants.RUM_TRACER_NAME;
 import static io.opentelemetry.semconv.ResourceAttributes.BROWSER_MOBILE;
 import static io.opentelemetry.semconv.ResourceAttributes.DEPLOYMENT_ENVIRONMENT;
@@ -151,7 +152,7 @@ public class RumInitializer implements IRum {
         RequestBody requestBody = RequestBody.Companion.create(rumData.getPayload(), MEDIA_TYPE_JSON);
         Request request = new Request.Builder()
                 .url(rumData.getEndpoint())
-                .header("Origin", builder.projectName)
+                .header("Origin", BASE_ORIGIN)
                 .header("MW_API_KEY", rumData.getAccessToken())
                 .header("Content-Type", "application/json")
                 .post(requestBody)
