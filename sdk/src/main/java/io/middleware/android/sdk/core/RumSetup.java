@@ -1,5 +1,6 @@
 package io.middleware.android.sdk.core;
 
+import static io.middleware.android.sdk.utils.Constants.BASE_ORIGIN;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_APPSTART;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_ERROR;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_KEY;
@@ -67,6 +68,7 @@ public class RumSetup implements IRumSetup {
                                             .builder()
                                             .setEndpoint(baseEndpoint + "/v1/metrics")
                                             .setTimeout(Duration.ofMillis(10000))
+                                            .addHeader("Origin", BASE_ORIGIN)
                                             .addHeader("Content-Type", "application/json")
                                             .addHeader("Access-Control-Allow-Headers", "*")
                                             .build()
@@ -88,6 +90,7 @@ public class RumSetup implements IRumSetup {
                                                     .builder()
                                                     .setEndpoint(target + "/v1/traces")
                                                     .setTimeout(Duration.ofMillis(10000))
+                                                    .addHeader("Origin", BASE_ORIGIN)
                                                     .addHeader("Content-Type", "application/json")
                                                     .addHeader("Access-Control-Allow-Headers", "*")
                                                     .build()
@@ -108,6 +111,7 @@ public class RumSetup implements IRumSetup {
                                     OtlpHttpLogRecordExporter
                                             .builder()
                                             .setEndpoint(target + "/v1/logs")
+                                            .addHeader("Origin", BASE_ORIGIN)
                                             .addHeader("Content-Type", "application/json")
                                             .addHeader("Access-Control-Allow-Headers", "*")
                                             .build()
