@@ -1,4 +1,4 @@
-# Middleware Instrumentation Android SDK
+# Middleware Android SDK
 ---
 <p align="center">
   <a href="https://maven-badges.herokuapp.com/maven-central/io.github.middleware-labs/android-sdk">
