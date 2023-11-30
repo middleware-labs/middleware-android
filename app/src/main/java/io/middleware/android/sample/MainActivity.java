@@ -4,11 +4,13 @@ import static io.opentelemetry.api.common.AttributeKey.stringKey;
 
 import android.annotation.SuppressLint;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.MutableLiveData;
 
@@ -17,6 +19,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import io.middleware.android.sdk.Middleware;
+import io.middleware.android.sdk.core.replay.MiddlewareRecorder;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.events.EventEmitter;
@@ -33,12 +36,26 @@ import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
 
+@RequiresApi(api = Build.VERSION_CODES.N)
 public class MainActivity extends AppCompatActivity {
 
     private Call.Factory okHttpClient;
     private final MutableLiveData<String> httpResponse = new MutableLiveData<>();
     private Middleware middleware;
     int count = 0;
+    private MiddlewareRecorder recorder = Middleware.getInstance().getRecorder();
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        recorder.startRecording(this);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        recorder.stopRecording();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

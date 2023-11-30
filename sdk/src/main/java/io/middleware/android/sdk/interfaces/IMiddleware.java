@@ -5,6 +5,7 @@ import android.webkit.WebView;
 
 import androidx.annotation.Nullable;
 
+import io.middleware.android.sdk.core.replay.MiddlewareRecorder;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
@@ -13,6 +14,8 @@ import okhttp3.Call;
 import okhttp3.OkHttpClient;
 
 public interface IMiddleware {
+    MiddlewareRecorder getRecorder();
+
     Call.Factory createRumOkHttpCallFactory(OkHttpClient client);
 
     void addEvent(String name, Attributes attributes);
@@ -32,8 +35,12 @@ public interface IMiddleware {
     void updateLocation(@Nullable Location location);
 
     void d(String TAG, String message);
+
     void e(String TAG, String message);
+
     void i(String TAG, String message);
+
     void w(String TAG, String message);
+
     void wtf(String TAG, String message);
 }

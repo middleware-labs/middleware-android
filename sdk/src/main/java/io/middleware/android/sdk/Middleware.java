@@ -11,6 +11,7 @@ import static io.middleware.android.sdk.utils.Constants.WORKFLOW_NAME_KEY;
 
 import android.app.Application;
 import android.location.Location;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -18,6 +19,7 @@ import android.webkit.WebView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.RequiresApi;
 
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -27,6 +29,8 @@ import io.middleware.android.sdk.builders.MiddlewareBuilder;
 import io.middleware.android.sdk.core.RumInitializer;
 import io.middleware.android.sdk.core.RumSetup;
 import io.middleware.android.sdk.core.models.NativeRumSessionId;
+import io.middleware.android.sdk.core.replay.MiddlewareRecorder;
+import io.middleware.android.sdk.core.replay.ReplayRecording;
 import io.middleware.android.sdk.extractors.RumResponseAttributesExtractor;
 import io.middleware.android.sdk.interfaces.IMiddleware;
 import io.middleware.android.sdk.utils.ServerTimingHeaderParser;
@@ -42,8 +46,6 @@ import io.opentelemetry.api.logs.Logger;
 import io.opentelemetry.api.logs.Severity;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.context.Context;
-import io.opentelemetry.context.Scope;
 import io.opentelemetry.instrumentation.okhttp.v3_0.OkHttpTelemetry;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import okhttp3.Call;
@@ -119,6 +121,18 @@ public class Middleware implements IMiddleware {
     }
 
     /**
+     * Returns the MiddlewareRecording enables recording functionality on activity.
+     * NOTE: This api is available above Android Nougat version.
+     *
+     * @return MiddlewareRecorder
+     */
+    @RequiresApi(api = Build.VERSION_CODES.N)
+    @Override
+    public MiddlewareRecorder getRecorder() {
+        return new MiddlewareRecorder(this);
+    }
+
+    /**
      * Wrap the provided {@link OkHttpClient} with OpenTelemetry and RUM instrumentation. Since
      * {@link Call.Factory} is the primary useful interface implemented by the OkHttpClient, this
      * should be a drop-in replacement for any usages of OkHttpClient.
@@ -162,17 +176,17 @@ public class Middleware implements IMiddleware {
     }
 
     //NOTE: This method is not used as of now will be used in future purposes.
-    private void addRumEvent(String name, Attributes attributes) {
+    public void addRumEvent(ReplayRecording replayRecording, Attributes attributes) {
         if (isInitialized()) {
-            INSTANCE.sendRumEvent(name, attributes);
+            INSTANCE.sendRumEvent(replayRecording, attributes);
         } else {
             Log.d(RUM_TRACER_NAME, "Unable to send rum event setup is not done properly.");
         }
     }
 
-    private void sendRumEvent(String name, Attributes attributes) {
+    private void sendRumEvent(ReplayRecording replayRecording, Attributes attributes) {
         attributes.toBuilder().put("session.id", getRumSessionId());
-        rumInitializer.sendRumEvent(name, attributes);
+        rumInitializer.sendRumEvent(replayRecording, attributes);
     }
 
     /**
