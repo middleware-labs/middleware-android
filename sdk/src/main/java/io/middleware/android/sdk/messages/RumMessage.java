@@ -1,84 +1,31 @@
 package io.middleware.android.sdk.messages;
 
+import java.util.List;
+
+import io.middleware.android.sdk.core.replay.RREvent;
 import io.opentelemetry.api.common.Attributes;
 
 public class RumMessage {
-    private final String sessionId;
-    private final String timestamp;
-    private final String type;
+    private final String session_id;
     private final String version;
-    private final String os;
-    private final String osVersion;
-    private final String platform;
-    private final String data;
-
-    private final Attributes attributes;
-
-    public String getVersion() {
-        return version;
-    }
+    private final List<RREvent> events;
 
     public String getSessionId() {
-        return sessionId;
+        return session_id;
     }
 
-    public String getTimestamp() {
-        return timestamp;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public String getOsVersion() {
-        return osVersion;
-    }
-
-    public String getPlatform() {
-        return platform;
-    }
-
-    public String getData() {
-        return data;
-    }
-
-    public String getOs() {
-        return os;
-    }
-
-    public Attributes getAttributes() {
-        return attributes;
+    public List<RREvent> getEvents() {
+        return events;
     }
 
     public static class Builder {
 
-        private String sessionId;
-        private String timestamp;
-        private final String type;
+        private String session_id;
         private String version;
-        private String os;
-        private String osVersion;
-        private String platform;
-        private String data;
+        private List<RREvent> events;
 
-        private Attributes attributes;
-
-        public Builder(String type) {
-            this.type = type;
-        }
-
-        public Builder setAttributes(Attributes attributes) {
-            this.attributes = attributes;
-            return this;
-        }
-
-        public Builder sessionId(String sessionId) {
-            this.sessionId = sessionId;
-            return this;
-        }
-
-        public Builder timestamp(String timestamp) {
-            this.timestamp = timestamp;
+        public Builder sessionId(String session_id) {
+            this.session_id = session_id;
             return this;
         }
 
@@ -87,23 +34,8 @@ public class RumMessage {
             return this;
         }
 
-        public Builder os(String os) {
-            this.os = os;
-            return this;
-        }
-
-        public Builder osVersion(String osVersion) {
-            this.osVersion = osVersion;
-            return this;
-        }
-
-        public Builder platform(String platform) {
-            this.platform = platform;
-            return this;
-        }
-
-        public Builder data(String data) {
-            this.data = data;
+        public Builder events(List<RREvent> events) {
+            this.events = events;
             return this;
         }
 
@@ -113,15 +45,9 @@ public class RumMessage {
     }
 
     private RumMessage(Builder builder) {
-        type = builder.type;
-        sessionId = builder.sessionId;
-        timestamp = builder.timestamp;
+        session_id = builder.session_id;
+        events = builder.events;
         version = builder.version;
-        os = builder.os;
-        osVersion = builder.osVersion;
-        platform = builder.platform;
-        data = builder.data;
-        attributes = builder.attributes;
     }
 }
 

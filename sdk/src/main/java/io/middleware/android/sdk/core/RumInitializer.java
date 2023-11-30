@@ -13,8 +13,11 @@ import android.os.Build;
 import android.os.Looper;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
+
 import com.google.gson.Gson;
 
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -27,7 +30,7 @@ import io.middleware.android.sdk.Middleware;
 import io.middleware.android.sdk.builders.MiddlewareBuilder;
 import io.middleware.android.sdk.core.models.InitializationEvents;
 import io.middleware.android.sdk.core.models.RumData;
-import io.middleware.android.sdk.core.services.RumServiceManager;
+import io.middleware.android.sdk.core.replay.ReplayRecording;
 import io.middleware.android.sdk.interfaces.IRum;
 import io.middleware.android.sdk.messages.Rum;
 import io.middleware.android.sdk.messages.RumMessage;
@@ -41,6 +44,13 @@ import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.sdk.resources.ResourceBuilder;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 public class RumInitializer implements IRum {
     private final MiddlewareBuilder builder;
@@ -116,41 +126,55 @@ public class RumInitializer implements IRum {
         return new Middleware(openTelemetryRum, rumSetup, globalAttributesSpanAppender);
     }
 
-    @SuppressLint("ObsoleteSdkInt")
-    public void sendRumEvent(String name, Attributes attributes) {
-        String timestamp;
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            LocalDateTime utcDateTime = LocalDateTime.now(ZoneId.of("UTC"));
-            timestamp = utcDateTime.toString();
-        } else {
-            @SuppressLint("SimpleDateFormat") SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
-            df.setTimeZone(TimeZone.getTimeZone("UTC"));
-            Calendar c = Calendar.getInstance();
-            timestamp = df.format(c.getTime());
-        }
-        RumMessage rumMessage = new RumMessage.Builder(name)
-                .setAttributes(attributes)
-                .timestamp(timestamp)
+    public void sendRumEvent(ReplayRecording replayRecording, Attributes attributes) {
+        RumMessage rumMessage = new RumMessage.Builder()
+                .events(replayRecording.getPayload())
                 .sessionId(attributes.get(AttributeKey.stringKey("session.id")))
                 .version(RumUtil.getVersion(Objects.requireNonNull(application)))
-                .os("Android")
-                .osVersion(Build.VERSION.RELEASE)
-                .platform(String.format("%s %s", Build.MANUFACTURER, Build.MODEL))
                 .build();
 
-        final Rum rum = new Rum();
-        rum.setEventData(new RumMessage[]{rumMessage});
         final RumData rumData = new RumData();
         rumData.setAccessToken(builder.rumAccessToken);
         rumData.setEndpoint(builder.target + "/v1/metrics/rum");
-        rumData.setPayload(new Gson().toJson(rum));
+        rumData.setPayload(new Gson().toJson(rumMessage));
         startRumService(rumData);
     }
 
     private void startRumService(RumData rumData) {
         Log.d("Middleware", "Starting RUM Service to send rum data");
-        RumServiceManager.startWorker(application.getApplicationContext(), rumData);
+        postRum(rumData);
+    }
+
+    private void postRum(RumData rumData) {
+        OkHttpClient okHttpClient = new OkHttpClient.Builder().build();
+        MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json; charset=utf-8");
+        RequestBody requestBody = RequestBody.Companion.create(rumData.getPayload(), MEDIA_TYPE_JSON);
+        Request request = new Request.Builder()
+                .url(rumData.getEndpoint())
+                .header("Origin", builder.projectName)
+                .header("MW_API_KEY", rumData.getAccessToken())
+                .header("Content-Type", "application/json")
+                .post(requestBody)
+                .build();
+        try {
+            okHttpClient.newCall(request).enqueue(new Callback() {
+                @Override
+                public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                    e.printStackTrace();
+                }
+
+                @Override
+                public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+                    if (response.isSuccessful()) {
+                        Log.d("RumService", "Video Recorded Successfully" + response.code());
+                    }
+                    assert response.body() != null;
+                    response.body().close();
+                }
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private Resource createMiddlewareResource() {

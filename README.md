@@ -59,7 +59,7 @@ implementation 'io.github.middleware-labs:android-sdk:1.0.1'
 
 ```java
 
-class MyApplication extends Application {
+class MiddlewareApplication extends Application {
    private final String targetUrl = "<target-url>";
    private final String rumAccessToken = "<your-access-token>";
 
@@ -243,4 +243,26 @@ logInstance.e("TAG", "I am error");
 logInstance.i("TAG", "I am info");
 logInstance.w("TAG", "I am warn");
 ```
+### Enable Video Recording
+Enable video recording in activity the following are the steps to enable. 
+Override the `onResume` & `onPause` methods to start a& stop video recording respectively.
 
+NOTE: This feature is available above Android Nougat 
+
+```java
+    final MiddlewareRecorder recorder = Middleware.getInstance().getRecorder();
+
+    @RequiresApi(api = Build.VERSION_CODES.N)
+    @Override
+    protected void onResume() {
+        super.onResume();
+        recorder.startRecording(this);
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.N)
+    @Override
+    protected void onPause() {
+        super.onPause();
+        recorder.stopRecording();
+    }
+```
