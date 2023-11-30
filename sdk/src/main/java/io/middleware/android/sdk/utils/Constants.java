@@ -33,4 +33,6 @@ public final class Constants {
 
     public static final AttributeKey<String> APP_NAME_KEY = stringKey("app");
 
+    public static final String BASE_ORIGIN = "sdk.middleware.io";
+
 }
