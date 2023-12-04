@@ -52,7 +52,7 @@ in the Middleware RUM section and RUM dashboard.
 ### Install Middleware Android SDK
 
 ```groovy
-implementation 'io.github.middleware-labs:android-sdk:1.0.1'
+implementation 'io.github.middleware-labs:android-sdk:+'
 ```
 
 ### Configure of Middleware Android Instrumentation
@@ -247,8 +247,8 @@ logInstance.w("TAG", "I am warn");
 Enable video recording in activity the following are the steps to enable. 
 Override the `onResume` & `onPause` methods to start a& stop video recording respectively.
 
-NOTE: This feature is available above Android Nougat 
-
+_NOTE: This feature is available above Android Nougat 
+_
 ```java
     final MiddlewareRecorder recorder = Middleware.getInstance().getRecorder();
 
