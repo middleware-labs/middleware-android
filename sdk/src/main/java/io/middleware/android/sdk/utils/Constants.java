@@ -6,6 +6,7 @@ import static io.opentelemetry.api.common.AttributeKey.stringKey;
 import java.time.Duration;
 
 import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.common.Attributes;
 
 public final class Constants {
 
@@ -32,6 +33,13 @@ public final class Constants {
     public static final AttributeKey<String> LINK_PARENT_SPAN_ID_KEY = stringKey("link.parentSpanId");
 
     public static final AttributeKey<String> APP_NAME_KEY = stringKey("app");
+
+    /**
+     * Sets the app version. Add to global attributes.
+     *
+     * @see io.middleware.android.sdk.builders.MiddlewareBuilder#setGlobalAttributes(Attributes)
+     */
+    public static final AttributeKey<String> APP_VERSION = stringKey("app.version");
 
     public static final String BASE_ORIGIN = "sdk.middleware.io";
 
