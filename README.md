@@ -58,7 +58,6 @@ implementation 'io.github.middleware-labs:android-sdk:+'
 ### Configure of Middleware Android Instrumentation
 
 ```java
-
 class MiddlewareApplication extends Application {
    private final String targetUrl = "<target-url>";
    private final String rumAccessToken = "<your-access-token>";
@@ -68,6 +67,7 @@ class MiddlewareApplication extends Application {
       super.onCreate();
 
     Middleware.builder()
+        .setGlobalAttributes(Attributes.of(APP_VERSION, BuildConfig.VERSION_NAME))
         .setTarget(targetUrl)
         .setServiceName("sample-android-app-1")
         .setProjectName("Mobile-SDK-Android")
