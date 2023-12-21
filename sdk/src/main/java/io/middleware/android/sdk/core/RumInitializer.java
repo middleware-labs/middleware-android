@@ -43,6 +43,8 @@ import io.opentelemetry.android.instrumentation.network.CurrentNetworkProvider;
 import io.opentelemetry.android.instrumentation.startup.AppStartupTimer;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.metrics.LongCounter;
+import io.opentelemetry.api.metrics.Meter;
 import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.sdk.resources.ResourceBuilder;
 import okhttp3.Call;
@@ -121,6 +123,19 @@ public class RumInitializer implements IRum {
         }
 
         final OpenTelemetryRum openTelemetryRum = rumSetup.build();
+        final Meter build = openTelemetryRum.getOpenTelemetry()
+                .getMeterProvider()
+                .meterBuilder("mw-counter")
+                .build();
+        final LongCounter userStatus = build
+                .counterBuilder("user.status")
+                .setDescription("User Status")
+                .setUnit("")
+                .build();
+        userStatus.add(1, createMiddlewareResource()
+                .getAttributes().toBuilder()
+                .put("session.id", openTelemetryRum.getRumSessionId()).build()
+        );
         initializerEvent.recordInitializationSpans(
                 builder.getConfigFlags(),
                 openTelemetryRum.getOpenTelemetry().getTracer(RUM_TRACER_NAME));
