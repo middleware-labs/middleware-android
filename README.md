@@ -243,12 +243,12 @@ logInstance.e("TAG", "I am error");
 logInstance.i("TAG", "I am info");
 logInstance.w("TAG", "I am warn");
 ```
-### Enable Video Recording
+### Enable Session Recording
 Enable video recording in activity the following are the steps to enable. 
 Override the `onResume` & `onPause` methods to start a& stop video recording respectively.
 
-_NOTE: This feature is available above Android Nougat 
-_
+_NOTE: This feature is available above Android Nougat_
+
 ```java
     final MiddlewareRecorder recorder = Middleware.getInstance().getRecorder();
 
