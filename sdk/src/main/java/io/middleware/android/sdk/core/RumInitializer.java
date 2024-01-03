@@ -3,14 +3,13 @@ package io.middleware.android.sdk.core;
 import static java.util.Objects.requireNonNull;
 import static io.middleware.android.sdk.utils.Constants.APP_NAME_KEY;
 import static io.middleware.android.sdk.utils.Constants.BASE_ORIGIN;
+import static io.middleware.android.sdk.utils.Constants.LOG_TAG;
 import static io.middleware.android.sdk.utils.Constants.RUM_TRACER_NAME;
 import static io.opentelemetry.semconv.ResourceAttributes.BROWSER_MOBILE;
 import static io.opentelemetry.semconv.ResourceAttributes.DEPLOYMENT_ENVIRONMENT;
 import static io.opentelemetry.semconv.ResourceAttributes.SERVICE_NAME;
 
-import android.annotation.SuppressLint;
 import android.app.Application;
-import android.os.Build;
 import android.os.Looper;
 import android.util.Log;
 
@@ -19,37 +18,40 @@ import androidx.annotation.NonNull;
 import com.google.gson.Gson;
 
 import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.Calendar;
-import java.util.Objects;
-import java.util.TimeZone;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.function.Function;
 
 import io.middleware.android.sdk.Middleware;
 import io.middleware.android.sdk.builders.MiddlewareBuilder;
 import io.middleware.android.sdk.core.models.InitializationEvents;
 import io.middleware.android.sdk.core.models.RumData;
+import io.middleware.android.sdk.core.replay.RREvent;
 import io.middleware.android.sdk.core.replay.ReplayRecording;
 import io.middleware.android.sdk.interfaces.IRum;
-import io.middleware.android.sdk.messages.Rum;
-import io.middleware.android.sdk.messages.RumMessage;
-import io.middleware.android.sdk.utils.RumUtil;
 import io.opentelemetry.android.GlobalAttributesSpanAppender;
 import io.opentelemetry.android.OpenTelemetryRum;
 import io.opentelemetry.android.instrumentation.activity.VisibleScreenTracker;
 import io.opentelemetry.android.instrumentation.network.CurrentNetworkProvider;
 import io.opentelemetry.android.instrumentation.startup.AppStartupTimer;
-import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.metrics.LongCounter;
 import io.opentelemetry.api.metrics.Meter;
+import io.opentelemetry.proto.common.v1.AnyValue;
+import io.opentelemetry.proto.common.v1.InstrumentationScope;
+import io.opentelemetry.proto.common.v1.KeyValue;
+import io.opentelemetry.proto.metrics.v1.Gauge;
+import io.opentelemetry.proto.metrics.v1.Metric;
+import io.opentelemetry.proto.metrics.v1.MetricsData;
+import io.opentelemetry.proto.metrics.v1.NumberDataPoint;
+import io.opentelemetry.proto.metrics.v1.ResourceMetrics;
+import io.opentelemetry.proto.metrics.v1.ScopeMetrics;
 import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.sdk.resources.ResourceBuilder;
 import okhttp3.Call;
 import okhttp3.Callback;
-import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
@@ -143,17 +145,55 @@ public class RumInitializer implements IRum {
     }
 
     public void sendRumEvent(ReplayRecording replayRecording, Attributes attributes) {
-        RumMessage rumMessage = new RumMessage.Builder()
-                .events(replayRecording.getPayload())
-                .sessionId(attributes.get(AttributeKey.stringKey("session.id")))
-                .version(RumUtil.getVersion(Objects.requireNonNull(application)))
+        attributes = attributes.toBuilder().put("mw.account_key", builder.rumAccessToken).build();
+        ResourceMetrics resourceMetrics = new ResourceMetrics.Builder().resource(
+                        new io.opentelemetry.proto.resource.v1.Resource.Builder()
+                                .attributes(attributesToKeyValueIterable(attributes)).build()
+                )
+                .scope_metrics(Collections.singletonList(new ScopeMetrics.Builder()
+                        .scope(new InstrumentationScope.Builder().build())
+                        .metrics(transformRREvent(requireNonNull(replayRecording.getPayload())))
+                        .build()))
                 .build();
-
+        MetricsData metricsData = new MetricsData.Builder()
+                .resource_metrics(Collections.singletonList(resourceMetrics)).build();
         final RumData rumData = new RumData();
         rumData.setAccessToken(builder.rumAccessToken);
-        rumData.setEndpoint(builder.target + "/v1/metrics/rum");
-        rumData.setPayload(new Gson().toJson(rumMessage));
+        rumData.setEndpoint(builder.target + "/v1/metrics");
+
+        Log.d(LOG_TAG, new Gson().toJson(metricsData));
+        rumData.setPayload(new Gson().toJson(metricsData));
+
         startRumService(rumData);
+    }
+
+    private List<Metric> transformRREvent(List<RREvent> events) {
+        final List<Metric> metrics = new ArrayList<>();
+        events.forEach(rrEvent -> {
+            Metric metric = new Metric.Builder()
+                    .name("rum_event")
+                    .gauge(new Gauge.Builder()
+                            .data_points(Collections.singletonList(new NumberDataPoint.Builder()
+                                    .attributes(Arrays.asList(
+                                            new KeyValue("type", new AnyValue.Builder()
+                                                    .string_value(String.valueOf(rrEvent.getType()))
+                                                    .build()),
+                                            new KeyValue("timestamp", new AnyValue.Builder()
+                                                    .string_value(String.valueOf(rrEvent.getTimestamp()))
+                                                    .build()),
+                                            new KeyValue("data", new AnyValue.Builder()
+                                                    .string_value(new Gson().toJson(rrEvent.getData()))
+                                                    .build())
+                                    ))
+                                    .time_unix_nano(rrEvent.getTimestamp() * 1000000)
+                                    .as_double(0.0)
+                                    .build())
+                            )
+                            .build())
+                    .build();
+            metrics.add(metric);
+        });
+        return metrics;
     }
 
     private void startRumService(RumData rumData) {
@@ -161,10 +201,18 @@ public class RumInitializer implements IRum {
         postRum(rumData);
     }
 
+    private static List<KeyValue> attributesToKeyValueIterable(Attributes attributes) {
+        final List<KeyValue> keyValueList = new ArrayList<>();
+        attributes.forEach((key, value) -> {
+            keyValueList.add(new KeyValue.Builder().key(String.valueOf(key)).value(new AnyValue.Builder()
+                    .string_value(String.valueOf(value)).build()).build());
+        });
+        return keyValueList;
+    }
+
     private void postRum(RumData rumData) {
         OkHttpClient okHttpClient = new OkHttpClient.Builder().build();
-        MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json; charset=utf-8");
-        RequestBody requestBody = RequestBody.Companion.create(rumData.getPayload(), MEDIA_TYPE_JSON);
+        RequestBody requestBody = RequestBody.Companion.create(rumData.getPayload().getBytes());
         Request request = new Request.Builder()
                 .url(rumData.getEndpoint())
                 .header("Origin", BASE_ORIGIN)
