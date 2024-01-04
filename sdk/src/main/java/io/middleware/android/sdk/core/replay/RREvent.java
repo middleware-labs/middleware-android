@@ -13,4 +13,16 @@ public class RREvent {
         this.type = type;
         this.data = data;
     }
+
+    public Long getTimestamp() {
+        return timestamp;
+    }
+
+    public Integer getType() {
+        return type;
+    }
+
+    public Map<String, Object> getData() {
+        return data;
+    }
 }

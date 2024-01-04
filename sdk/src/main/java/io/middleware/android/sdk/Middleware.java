@@ -1,5 +1,6 @@
 package io.middleware.android.sdk;
 
+import static io.middleware.android.sdk.utils.Constants.BASE_ORIGIN;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_ERROR;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_KEY;
 import static io.middleware.android.sdk.utils.Constants.EVENT_TYPE;
@@ -21,6 +22,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -185,8 +187,13 @@ public class Middleware implements IMiddleware {
     }
 
     private void sendRumEvent(ReplayRecording replayRecording, Attributes attributes) {
-        attributes.toBuilder().put("session.id", getRumSessionId());
-        rumInitializer.sendRumEvent(replayRecording, attributes);
+        Attributes newAttributes = attributes.toBuilder()
+                .put("mw.client_origin", BASE_ORIGIN)
+                .put("rum_origin", BASE_ORIGIN)
+                .put("origin", BASE_ORIGIN)
+                .put("session_id", getRumSessionId())
+                .build();
+        rumInitializer.sendRumEvent(replayRecording, newAttributes);
     }
 
     /**
