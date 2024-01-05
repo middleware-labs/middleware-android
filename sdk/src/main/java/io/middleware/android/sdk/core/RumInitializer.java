@@ -146,7 +146,7 @@ public class RumInitializer implements IRum {
 
     public void sendRumEvent(ReplayRecording replayRecording, Attributes attributes) {
         attributes = attributes.toBuilder().put("mw.account_key", builder.rumAccessToken).build();
-        ResourceMetrics resourceMetrics = new ResourceMetrics.Builder().resource(
+        final ResourceMetrics resourceMetrics = new ResourceMetrics.Builder().resource(
                         new io.opentelemetry.proto.resource.v1.Resource.Builder()
                                 .attributes(attributesToKeyValueIterable(attributes)).build()
                 )
@@ -155,15 +155,12 @@ public class RumInitializer implements IRum {
                         .metrics(transformRREvent(requireNonNull(replayRecording.getPayload())))
                         .build()))
                 .build();
-        MetricsData metricsData = new MetricsData.Builder()
+        final MetricsData metricsData = new MetricsData.Builder()
                 .resource_metrics(Collections.singletonList(resourceMetrics)).build();
         final RumData rumData = new RumData();
         rumData.setAccessToken(builder.rumAccessToken);
         rumData.setEndpoint(builder.target + "/v1/metrics");
-
-        Log.d(LOG_TAG, new Gson().toJson(metricsData));
         rumData.setPayload(new Gson().toJson(metricsData));
-
         startRumService(rumData);
     }
 
