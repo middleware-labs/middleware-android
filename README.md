@@ -1,9 +1,13 @@
 # Middleware Android SDK
 ---
 <p align="center">
+  <a href="https://github.com/middleware-labs/middleware-android/releases">
+    <img alt="Build Status" src="https://img.shields.io/badge/status-beta-orange">
+  </a>
   <a href="https://maven-badges.herokuapp.com/maven-central/io.github.middleware-labs/android-sdk">
     <img alt="Maven Central" src="https://img.shields.io/maven-central/v/io.github.middleware-labs/android-sdk?style=flat">
-  </a>  <a href="https://github.com/middleware-labs/middleware-android/releases">
+  </a>  
+  <a href="https://github.com/middleware-labs/middleware-android/releases">
     <img alt="GitHub release (latest SemVer)" src="https://img.shields.io/github/v/release/middleware-labs/middleware-android?include_prereleases&style=flat">
   </a>
   <a href="https://github.com/middleware-labs/middleware-android/actions/workflows/build.yml">
