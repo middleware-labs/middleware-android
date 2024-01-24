@@ -51,6 +51,9 @@ import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 
 public class RumSetup implements IRumSetup {
     private final OpenTelemetryRumBuilder openTelemetryRumBuilder;
+    private MiddlewareSpanExporter middlewareSpanExporter;
+    private MiddlewareLogsExporter middlewareLogsExporter;
+    private MiddlewareMetricsExporter middlewareMetricsExporter;
 
     public RumSetup(Application application) {
         openTelemetryRumBuilder = OpenTelemetryRum.builder(application);
@@ -58,44 +61,41 @@ public class RumSetup implements IRumSetup {
 
     @Override
     public void setMetrics(String baseEndpoint, Resource middlewareResource) {
+        this.middlewareMetricsExporter = new MiddlewareMetricsExporter(
+                OtlpHttpMetricExporter
+                        .builder()
+                        .setEndpoint(baseEndpoint + "/v1/metrics")
+                        .setTimeout(Duration.ofMillis(10000))
+                        .addHeader("Origin", BASE_ORIGIN)
+                        .addHeader("Content-Type", "application/json")
+                        .addHeader("Access-Control-Allow-Headers", "*")
+                        .build()
+        );
         openTelemetryRumBuilder.addMeterProviderCustomizer((sdkMeterProviderBuilder, application1) -> {
             sdkMeterProviderBuilder.addResource(middlewareResource);
             sdkMeterProviderBuilder.registerMetricReader(
-
-                    PeriodicMetricReader.create(
-                            new MiddlewareMetricsExporter(
-                                    OtlpHttpMetricExporter
-                                            .builder()
-                                            .setEndpoint(baseEndpoint + "/v1/metrics")
-                                            .setTimeout(Duration.ofMillis(10000))
-                                            .addHeader("Origin", BASE_ORIGIN)
-                                            .addHeader("Content-Type", "application/json")
-                                            .addHeader("Access-Control-Allow-Headers", "*")
-                                            .build()
-                            )
-                    ));
+                    PeriodicMetricReader.create(middlewareMetricsExporter));
             return sdkMeterProviderBuilder;
         });
     }
 
     @Override
     public void setTraces(String target, Resource middlewareResource) {
+        this.middlewareSpanExporter = new MiddlewareSpanExporter(
+                OtlpHttpSpanExporter
+                        .builder()
+                        .setEndpoint(target + "/v1/traces")
+                        .setTimeout(Duration.ofMillis(10000))
+                        .addHeader("Origin", BASE_ORIGIN)
+                        .addHeader("Content-Type", "application/json")
+                        .addHeader("Access-Control-Allow-Headers", "*")
+                        .build()
+        );
         openTelemetryRumBuilder.addTracerProviderCustomizer((sdkTracerProviderBuilder, application1) -> {
             sdkTracerProviderBuilder.addResource(middlewareResource);
             sdkTracerProviderBuilder.addSpanProcessor(
                     BatchSpanProcessor
-                            .builder(
-                                    new MiddlewareSpanExporter(
-                                            OtlpHttpSpanExporter
-                                                    .builder()
-                                                    .setEndpoint(target + "/v1/traces")
-                                                    .setTimeout(Duration.ofMillis(10000))
-                                                    .addHeader("Origin", BASE_ORIGIN)
-                                                    .addHeader("Content-Type", "application/json")
-                                                    .addHeader("Access-Control-Allow-Headers", "*")
-                                                    .build()
-                                    )
-                            )
+                            .builder(middlewareSpanExporter)
                             .build());
 
             return sdkTracerProviderBuilder;
@@ -103,20 +103,35 @@ public class RumSetup implements IRumSetup {
     }
 
     @Override
+    public MiddlewareSpanExporter getSpanExporter() {
+        return middlewareSpanExporter;
+    }
+
+    @Override
+    public MiddlewareMetricsExporter getMetricsExporter() {
+        return middlewareMetricsExporter;
+    }
+
+    @Override
+    public MiddlewareLogsExporter getLogsExporter() {
+        return middlewareLogsExporter;
+    }
+
+    @Override
     public void setLogs(String target, Resource middlewareResource) {
+        this.middlewareLogsExporter = new MiddlewareLogsExporter(
+                OtlpHttpLogRecordExporter
+                        .builder()
+                        .setEndpoint(target + "/v1/logs")
+                        .addHeader("Origin", BASE_ORIGIN)
+                        .addHeader("Content-Type", "application/json")
+                        .addHeader("Access-Control-Allow-Headers", "*")
+                        .build()
+        );
         openTelemetryRumBuilder.addLoggerProviderCustomizer((sdkLoggerProviderBuilder, application1) -> {
             sdkLoggerProviderBuilder.setResource(middlewareResource);
             sdkLoggerProviderBuilder.addLogRecordProcessor(SimpleLogRecordProcessor
-                    .create(new MiddlewareLogsExporter(
-                                    OtlpHttpLogRecordExporter
-                                            .builder()
-                                            .setEndpoint(target + "/v1/logs")
-                                            .addHeader("Origin", BASE_ORIGIN)
-                                            .addHeader("Content-Type", "application/json")
-                                            .addHeader("Access-Control-Allow-Headers", "*")
-                                            .build()
-                            )
-                    )
+                    .create(middlewareLogsExporter)
             );
             return sdkLoggerProviderBuilder;
         });
