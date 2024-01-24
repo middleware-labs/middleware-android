@@ -4,6 +4,9 @@ import android.os.Looper;
 
 import java.time.Duration;
 
+import io.middleware.android.sdk.exporters.MiddlewareLogsExporter;
+import io.middleware.android.sdk.exporters.MiddlewareMetricsExporter;
+import io.middleware.android.sdk.exporters.MiddlewareSpanExporter;
 import io.opentelemetry.android.GlobalAttributesSpanAppender;
 import io.opentelemetry.android.OpenTelemetryRum;
 import io.opentelemetry.android.instrumentation.activity.VisibleScreenTracker;
@@ -40,6 +43,10 @@ public interface IRumSetup {
     void setLifecycleInstrumentations(VisibleScreenTracker visibleScreenTracker, AppStartupTimer appStartupTimer);
 
     void mergeResource(Resource middlewareResource);
+
+    MiddlewareSpanExporter getSpanExporter();
+    MiddlewareMetricsExporter getMetricsExporter();
+    MiddlewareLogsExporter getLogsExporter();
 
     Attributes modifyEventAttributes(String eventName, Attributes attributes);
 
