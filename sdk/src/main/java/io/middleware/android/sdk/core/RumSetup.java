@@ -13,6 +13,7 @@ import android.app.Application;
 import android.os.Looper;
 
 import java.time.Duration;
+import java.util.Objects;
 import java.util.function.Function;
 
 import io.middleware.android.sdk.core.models.ScreenAttributesAppender;
@@ -35,6 +36,7 @@ import io.opentelemetry.android.instrumentation.network.NetworkAttributesSpanApp
 import io.opentelemetry.android.instrumentation.network.NetworkChangeMonitor;
 import io.opentelemetry.android.instrumentation.slowrendering.SlowRenderingDetector;
 import io.opentelemetry.android.instrumentation.startup.AppStartupTimer;
+import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.propagation.TextMapPropagator;
@@ -66,6 +68,8 @@ public class RumSetup implements IRumSetup {
                         .builder()
                         .setEndpoint(baseEndpoint + "/v1/metrics")
                         .setTimeout(Duration.ofMillis(10000))
+                        .addHeader("Authorization", Objects.requireNonNull(middlewareResource
+                                .getAttribute(AttributeKey.stringKey("mw.account_key"))))
                         .addHeader("Origin", BASE_ORIGIN)
                         .addHeader("Content-Type", "application/json")
                         .addHeader("Access-Control-Allow-Headers", "*")
@@ -86,6 +90,8 @@ public class RumSetup implements IRumSetup {
                         .builder()
                         .setEndpoint(target + "/v1/traces")
                         .setTimeout(Duration.ofMillis(10000))
+                        .addHeader("Authorization", Objects.requireNonNull(middlewareResource
+                                .getAttribute(AttributeKey.stringKey("mw.account_key"))))
                         .addHeader("Origin", BASE_ORIGIN)
                         .addHeader("Content-Type", "application/json")
                         .addHeader("Access-Control-Allow-Headers", "*")
@@ -123,6 +129,8 @@ public class RumSetup implements IRumSetup {
                 OtlpHttpLogRecordExporter
                         .builder()
                         .setEndpoint(target + "/v1/logs")
+                        .addHeader("Authorization", Objects.requireNonNull(middlewareResource
+                                .getAttribute(AttributeKey.stringKey("mw.account_key"))))
                         .addHeader("Origin", BASE_ORIGIN)
                         .addHeader("Content-Type", "application/json")
                         .addHeader("Access-Control-Allow-Headers", "*")
