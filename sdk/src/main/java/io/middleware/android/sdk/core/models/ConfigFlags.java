@@ -23,6 +23,10 @@ public class ConfigFlags {
         crashReportingEnabled = false;
     }
 
+    public void disableActivityLifecycleMonitoring() {
+        activityLifecycleEnabled = false;
+    }
+
     public void disableNetworkMonitor() {
         networkMonitorEnabled = false;
     }
