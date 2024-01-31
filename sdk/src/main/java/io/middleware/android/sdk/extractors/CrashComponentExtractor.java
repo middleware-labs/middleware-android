@@ -30,7 +30,7 @@ public final class CrashComponentExtractor implements AttributesExtractor<CrashD
                         ? COMPONENT_CRASH
                         : COMPONENT_ERROR;
         attributes.put(COMPONENT_KEY, component);
-        attributes.put(EVENT_TYPE, component);
+        attributes.put(EVENT_TYPE, COMPONENT_ERROR);
     }
 
     @Override
