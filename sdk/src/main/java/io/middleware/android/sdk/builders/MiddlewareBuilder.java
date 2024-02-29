@@ -131,6 +131,16 @@ public final class MiddlewareBuilder {
     }
 
     /**
+     * Disable session recording. By default session recording is enabled.
+     *
+     * @return {@code this}
+     */
+    public MiddlewareBuilder disableSessionRecording() {
+        configFlags.disableSessionRecording();
+        return this;
+    }
+
+    /**
      * Configures the rate at which frame render durations are polled.
      *
      * @param interval The period that should be used for polling.
@@ -208,6 +218,10 @@ public final class MiddlewareBuilder {
 
     public boolean isDebugEnabled() {
         return configFlags.isDebugEnabled();
+    }
+
+    public boolean isRecordingEnabled() {
+        return configFlags.isRecordingEnabled();
     }
 
     public ConfigFlags getConfigFlags() {

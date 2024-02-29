@@ -19,7 +19,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import io.middleware.android.sdk.Middleware;
-import io.middleware.android.sdk.core.replay.MiddlewareRecorder;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.events.EventEmitter;
@@ -43,19 +42,6 @@ public class MainActivity extends AppCompatActivity {
     private final MutableLiveData<String> httpResponse = new MutableLiveData<>();
     private Middleware middleware;
     int count = 0;
-    private MiddlewareRecorder recorder = Middleware.getInstance().getRecorder();
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        recorder.startRecording(this);
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        recorder.stopRecording();
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,6 +62,8 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(getApplicationContext(), "HTTP CALL Successful", Toast.LENGTH_SHORT).show();
         });
 
+        middleware.addSanitizedElement(httpButton);
+
         final Button crashButton = findViewById(R.id.crash_button);
         crashButton.setOnClickListener(v -> {
             middleware.d("BUTTON", "CLICKED : CRASH BUTTON");
@@ -83,7 +71,6 @@ public class MainActivity extends AppCompatActivity {
             Span workflow = middleware.startWorkflow("Crash Workflow");
             crashFlowTrigger(workflow);
             middleware.setGlobalAttribute(stringKey("crashId"), String.valueOf(Math.random()));
-
         });
 
         final Button webView = findViewById(R.id.web_view_button);

@@ -10,6 +10,7 @@ public class ConfigFlags {
     private boolean networkMonitorEnabled = true;
     private boolean anrDetectionEnabled = true;
     private boolean slowRenderingDetectionEnabled = true;
+    private boolean recordingEnabled = true;
 
     public void enableDebug() {
         debugEnabled = true;
@@ -35,10 +36,17 @@ public class ConfigFlags {
         slowRenderingDetectionEnabled = false;
     }
 
+    public void disableSessionRecording() {
+        recordingEnabled = false;
+    }
+
     public boolean isDebugEnabled() {
         return debugEnabled;
     }
 
+    public boolean isRecordingEnabled() {
+        return recordingEnabled;
+    }
     public boolean isActivityLifecycleEnabled() {
         return activityLifecycleEnabled;
     }
