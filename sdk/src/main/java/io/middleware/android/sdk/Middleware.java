@@ -16,13 +16,13 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.view.View;
 import android.webkit.WebView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
-import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -31,7 +31,9 @@ import io.middleware.android.sdk.builders.MiddlewareBuilder;
 import io.middleware.android.sdk.core.RumInitializer;
 import io.middleware.android.sdk.core.RumSetup;
 import io.middleware.android.sdk.core.models.NativeRumSessionId;
+import io.middleware.android.sdk.core.replay.v2.ActivityCallbacks;
 import io.middleware.android.sdk.core.replay.MiddlewareRecorder;
+import io.middleware.android.sdk.core.replay.v2.MiddlewareScreenshotManager;
 import io.middleware.android.sdk.core.replay.ReplayRecording;
 import io.middleware.android.sdk.extractors.RumResponseAttributesExtractor;
 import io.middleware.android.sdk.interfaces.IMiddleware;
@@ -61,6 +63,7 @@ public class Middleware implements IMiddleware {
     @Nullable
     private static Middleware INSTANCE;
     private static Logger LOGGER;
+    private static MiddlewareScreenshotManager middlewareScreenshotManager;
     private final OpenTelemetryRum openTelemetryRum;
 
     private final RumSetup middlewareRum;
@@ -100,6 +103,12 @@ public class Middleware implements IMiddleware {
         LOGGER = INSTANCE.getOpenTelemetry().getLogsBridge()
                 .loggerBuilder(builder.serviceName)
                 .build();
+        if (builder.isRecordingEnabled()) {
+            Log.d(LOG_TAG, "Started session recording.");
+            middlewareScreenshotManager = new MiddlewareScreenshotManager(System.currentTimeMillis(), builder.target, builder.rumAccessToken);
+            application.registerActivityLifecycleCallbacks(new ActivityCallbacks(middlewareScreenshotManager));
+            middlewareScreenshotManager.start();
+        }
         Log.i(LOG_TAG, "Middleware RUM monitoring initialized with session ID: " + INSTANCE.getRumSessionId());
         return INSTANCE;
     }
@@ -293,6 +302,25 @@ public class Middleware implements IMiddleware {
         globalAttributes.update(attributesUpdater);
     }
 
+    /**
+     * Sanitize view for session recording.
+     * View will be blurred in session recording.
+     *
+     * @param view
+     */
+    public void addSanitizedElement(View view) {
+        middlewareScreenshotManager.setViewForBlur(view);
+    }
+
+    /**
+     * Remove view from sanitization.
+     * View will be shown in session recording.
+     *
+     * @param view
+     */
+    public void removeSanitizedElement(View view) {
+        middlewareScreenshotManager.removeSanitizedElement(view);
+    }
     // for testing only
     static void resetSingletonForTest() {
         INSTANCE = null;
