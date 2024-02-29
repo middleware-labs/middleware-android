@@ -172,7 +172,7 @@ public class Middleware implements IMiddleware {
         return openTelemetryRum.getOpenTelemetry();
     }
 
-    private RumSetup getMiddlewareRum() {
+    public RumSetup getMiddlewareRum() {
         return middlewareRum;
     }
 

@@ -2,6 +2,7 @@ package io.middleware.android.sdk.core.models;
 
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_APPSTART;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_KEY;
+import static io.middleware.android.sdk.utils.Constants.EVENT_TYPE;
 
 import io.opentelemetry.android.instrumentation.startup.AppStartupTimer;
 import io.opentelemetry.api.trace.Span;
@@ -34,7 +35,9 @@ public class InitializationEvents {
                 spanName ->
                         delegateTracer
                                 .spanBuilder(spanName)
-                                .setAttribute(COMPONENT_KEY, COMPONENT_APPSTART);
+                                .setAttribute(COMPONENT_KEY, COMPONENT_APPSTART)
+                                .setAttribute(EVENT_TYPE, "app_activity");
+
 
         Span overallAppStart = startupTimer.start(tracer);
         Span span =

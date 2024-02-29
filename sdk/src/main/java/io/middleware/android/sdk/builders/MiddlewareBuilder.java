@@ -93,6 +93,16 @@ public final class MiddlewareBuilder {
     }
 
     /**
+     * Disables the activity lifecycle monitoring instrumentation.
+     *
+     * @return {@code this}
+     */
+    public MiddlewareBuilder disableActivityLifecycleMonitoring() {
+        configFlags.disableActivityLifecycleMonitoring();
+        return this;
+    }
+
+    /**
      * Disables the network monitoring feature.
      *
      * <p>This feature is enabled by default. You can disable it by calling this method.
