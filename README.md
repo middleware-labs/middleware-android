@@ -248,25 +248,13 @@ logInstance.i("TAG", "I am info");
 logInstance.w("TAG", "I am warn");
 ```
 ### Enable Session Recording
-Enable video recording in activity the following are the steps to enable. 
-Override the `onResume` & `onPause` methods to start a& stop video recording respectively.
+By default session recording is enabled capture all activities. To disable session recording you can use `.disableSessionRecording()` 
 
-_NOTE: This feature is available above Android Nougat_
+#### Sanitizing view elements
 
+To blur sensitive information in session recording use the following method : 
 ```java
-    final MiddlewareRecorder recorder = Middleware.getInstance().getRecorder();
-
-    @RequiresApi(api = Build.VERSION_CODES.N)
-    @Override
-    protected void onResume() {
-        super.onResume();
-        recorder.startRecording(this);
-    }
-
-    @RequiresApi(api = Build.VERSION_CODES.N)
-    @Override
-    protected void onPause() {
-        super.onPause();
-        recorder.stopRecording();
-    }
+    final Middleware instance = Middleware.getInstance();
+    final TextView someTextView = findViewById(R.id.some_text_view;
+    instance.addSanitizedElement(someTextView);
 ```
