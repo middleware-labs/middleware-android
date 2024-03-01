@@ -10,6 +10,7 @@ import static io.middleware.android.sdk.utils.Constants.LOG_TAG;
 import static io.middleware.android.sdk.utils.Constants.RUM_TRACER_NAME;
 import static io.middleware.android.sdk.utils.Constants.WORKFLOW_NAME_KEY;
 
+import android.app.Activity;
 import android.app.Application;
 import android.location.Location;
 import android.os.Build;
@@ -141,6 +142,11 @@ public class Middleware implements IMiddleware {
     @Override
     public MiddlewareRecorder getRecorder() {
         return new MiddlewareRecorder(this);
+    }
+
+    public void startNativeRecording(Activity activity) {
+        middlewareScreenshotManager.setActivity(activity);
+        middlewareScreenshotManager.start();
     }
 
     /**
