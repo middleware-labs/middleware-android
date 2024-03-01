@@ -76,6 +76,8 @@ public class Middleware implements IMiddleware {
         startupTimer.detectBackgroundStart(handler);
     }
 
+    private String nativeSessionId;
+
     public Middleware(OpenTelemetryRum openTelemetryRum, RumSetup middlewareRum, GlobalAttributesSpanAppender globalAttributes) {
         this.openTelemetryRum = openTelemetryRum;
         this.middlewareRum = middlewareRum;
@@ -189,7 +191,22 @@ public class Middleware implements IMiddleware {
      * recommended that you do not cache this value, but always retrieve it from here when needed.
      */
     public String getRumSessionId() {
+        // return native session id if already set.
+        if(nativeSessionId != null) {
+            return nativeSessionId;
+        }
         return openTelemetryRum.getRumSessionId();
+    }
+
+
+    /**
+     * Set Native Session Id.
+     * Note: If this is set throughout the session the same session id will be used.
+     *
+     * @param nativeSessionId
+     */
+    public void setNativeSessionId(final String nativeSessionId) {
+        this.nativeSessionId = nativeSessionId;
     }
 
     //NOTE: This method is not used as of now will be used in future purposes.
