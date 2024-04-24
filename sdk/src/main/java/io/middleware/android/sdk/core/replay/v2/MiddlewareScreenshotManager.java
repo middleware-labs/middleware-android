@@ -74,7 +74,7 @@ public class MiddlewareScreenshotManager {
                         for (View view :
                                 sanitizedElements) {
                             RectF frame = null;
-                            if (view.isShown()) {
+                            if (view != null && view.isShown()) {
                                 frame = getElementFrameInWindow(view);
                                 if (frame != null) {
                                     Paint paint = new Paint();
