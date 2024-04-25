@@ -69,34 +69,37 @@ public class MiddlewareScreenshotManager {
                 if (isReadyToTakeScreenshot) {
                     View rootView = currentActivity.getWindow().getDecorView().getRootView();
                     Bitmap bitmap = getBitmap(rootView);
-                    if (isBlur) {
-                        Canvas canvas = new Canvas(bitmap);
-                        for (View view :
-                                sanitizedElements) {
-                            RectF frame = null;
-                            if (view != null && view.isShown()) {
-                                frame = getElementFrameInWindow(view);
-                                if (frame != null) {
-                                    Paint paint = new Paint();
-                                    paint.setFilterBitmap(false);
-                                    paint.setColor(Color.BLACK);
-                                    canvas.drawRect(frame, paint);
-                                }
-                            } else {
-                                if (frame != null) {
-                                    Paint clearPaint = new Paint();
-                                    clearPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
-                                    canvas.drawRect(frame, clearPaint);
+                    if (bitmap != null) {
+                        if (isBlur) {
+                            Canvas canvas = new Canvas(bitmap);
+                            for (View view :
+                                    sanitizedElements) {
+                                RectF frame = null;
+                                if (view != null && view.isShown()) {
+                                    frame = getElementFrameInWindow(view);
+                                    if (frame != null) {
+                                        Paint paint = new Paint();
+                                        paint.setFilterBitmap(false);
+                                        paint.setColor(Color.BLACK);
+                                        canvas.drawRect(frame, paint);
+                                    }
+                                } else {
+                                    if (frame != null) {
+                                        Paint clearPaint = new Paint();
+                                        clearPaint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.CLEAR));
+                                        canvas.drawRect(frame, clearPaint);
+                                    }
                                 }
                             }
                         }
+                        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 25, byteArrayOutputStream);
+                        bitmaps.add(byteArrayOutputStream.toByteArray());
+                        if (bitmaps.size() > 10) {
+                            sendScreenshots();
+                        }
                     }
-                    ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 25, byteArrayOutputStream);
-                    bitmaps.add(byteArrayOutputStream.toByteArray());
-                    if (bitmaps.size() > 10) {
-                        sendScreenshots();
-                    }
+
                 }
                 handler.postDelayed(this, SCREENSHOT_INTERVAL);
             }
@@ -119,7 +122,10 @@ public class MiddlewareScreenshotManager {
 
     private static Bitmap getBitmap(View view) {
         view.setDrawingCacheEnabled(true);
-        Bitmap bitmap = Bitmap.createBitmap(view.getDrawingCache());
+        Bitmap bitmap = view.getDrawingCache();
+        if (bitmap != null) {
+            bitmap = Bitmap.createBitmap(bitmap);
+        }
         view.setDrawingCacheEnabled(false);
         return bitmap;
     }
