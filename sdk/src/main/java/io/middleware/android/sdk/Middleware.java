@@ -107,10 +107,15 @@ public class Middleware implements IMiddleware {
                 .loggerBuilder(builder.serviceName)
                 .build();
         if (builder.isRecordingEnabled()) {
-            Log.d(LOG_TAG, "Started session recording.");
-            middlewareScreenshotManager = new MiddlewareScreenshotManager(System.currentTimeMillis(), builder.target, builder.rumAccessToken);
-            application.registerActivityLifecycleCallbacks(new ActivityCallbacks(middlewareScreenshotManager));
-            middlewareScreenshotManager.start();
+            Log.d(LOG_TAG, "Session recording enabled, waiting layout to get attached.");
+            middlewareScreenshotManager = new MiddlewareScreenshotManager(
+                    System.currentTimeMillis(),
+                    builder.target,
+                    builder.rumAccessToken
+            );
+            application.registerActivityLifecycleCallbacks(
+                    new ActivityCallbacks(middlewareScreenshotManager))
+            ;
         }
         Log.i(LOG_TAG, "Middleware RUM monitoring initialized with session ID: " + INSTANCE.getRumSessionId());
         return INSTANCE;
@@ -148,7 +153,6 @@ public class Middleware implements IMiddleware {
 
     public void startNativeRecording(Activity activity) {
         middlewareScreenshotManager.setActivity(activity);
-        middlewareScreenshotManager.start();
     }
 
     /**
@@ -192,7 +196,7 @@ public class Middleware implements IMiddleware {
      */
     public String getRumSessionId() {
         // return native session id if already set.
-        if(nativeSessionId != null) {
+        if (nativeSessionId != null) {
             return nativeSessionId;
         }
         return openTelemetryRum.getRumSessionId();
@@ -344,6 +348,7 @@ public class Middleware implements IMiddleware {
     public void removeSanitizedElement(View view) {
         middlewareScreenshotManager.removeSanitizedElement(view);
     }
+
     // for testing only
     static void resetSingletonForTest() {
         INSTANCE = null;
