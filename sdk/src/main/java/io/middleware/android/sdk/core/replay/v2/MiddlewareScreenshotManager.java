@@ -121,11 +121,11 @@ public class MiddlewareScreenshotManager {
     }
 
     private static Bitmap getBitmap(View view) {
+        view.measure(View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        view.layout(0, 0, view.getMeasuredWidth(), view.getMeasuredHeight());
         view.setDrawingCacheEnabled(true);
-        Bitmap bitmap = view.getDrawingCache();
-        if (bitmap != null) {
-            bitmap = Bitmap.createBitmap(bitmap);
-        }
+        final Bitmap bitmap = Bitmap.createBitmap(view.getDrawingCache());
         view.setDrawingCacheEnabled(false);
         return bitmap;
     }
