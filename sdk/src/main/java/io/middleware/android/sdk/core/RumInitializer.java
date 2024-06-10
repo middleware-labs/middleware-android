@@ -3,7 +3,6 @@ package io.middleware.android.sdk.core;
 import static java.util.Objects.requireNonNull;
 import static io.middleware.android.sdk.utils.Constants.APP_NAME_KEY;
 import static io.middleware.android.sdk.utils.Constants.BASE_ORIGIN;
-import static io.middleware.android.sdk.utils.Constants.LOG_TAG;
 import static io.middleware.android.sdk.utils.Constants.RUM_TRACER_NAME;
 import static io.opentelemetry.semconv.ResourceAttributes.BROWSER_MOBILE;
 import static io.opentelemetry.semconv.ResourceAttributes.DEPLOYMENT_ENVIRONMENT;
@@ -244,6 +243,11 @@ public class RumInitializer implements IRum {
         ResourceBuilder resourceBuilder = Resource.getDefault().toBuilder().put(APP_NAME_KEY, applicationName);
         if (builder.deploymentEnvironment != null) {
             resourceBuilder.put(DEPLOYMENT_ENVIRONMENT.getKey(), builder.deploymentEnvironment);
+        }
+        if (builder.globalAttributes != null) {
+            builder.globalAttributes.forEach((attributeKey, o) -> {
+                resourceBuilder.put(attributeKey.getKey(), String.valueOf(builder.globalAttributes.get(attributeKey)));
+            });
         }
         resourceBuilder.put(SERVICE_NAME.getKey(), builder.serviceName);
         resourceBuilder.put("project.name", builder.projectName);
