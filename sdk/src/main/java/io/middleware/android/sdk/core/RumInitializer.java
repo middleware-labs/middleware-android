@@ -251,7 +251,7 @@ public class RumInitializer implements IRum {
         }
         resourceBuilder.put(SERVICE_NAME.getKey(), builder.serviceName);
         resourceBuilder.put("project.name", builder.projectName);
-        resourceBuilder.put("mw_agent", true);
+        resourceBuilder.put("mw.rum", true);
         resourceBuilder.put("mw.account_key", builder.rumAccessToken);
         resourceBuilder.put("browser.trace", "true");
         resourceBuilder.put(BROWSER_MOBILE.getKey(), "true");
