@@ -2,12 +2,14 @@ package io.middleware.android.sdk;
 
 
 import android.webkit.WebView;
+
+import java.util.function.Consumer;
+
 import io.opentelemetry.android.OpenTelemetryRum;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.trace.Tracer;
-import java.util.function.Consumer;
 import okhttp3.Call;
 import okhttp3.OkHttpClient;
 

@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Function;
 
 import io.middleware.android.sdk.Middleware;
 import io.middleware.android.sdk.builders.MiddlewareBuilder;
@@ -32,8 +31,6 @@ import io.opentelemetry.android.GlobalAttributesSpanAppender;
 import io.opentelemetry.android.OpenTelemetryRum;
 import io.opentelemetry.android.instrumentation.activity.startup.AppStartupTimer;
 import io.opentelemetry.api.common.Attributes;
-import io.opentelemetry.api.metrics.LongCounter;
-import io.opentelemetry.api.metrics.Meter;
 import io.opentelemetry.proto.common.v1.AnyValue;
 import io.opentelemetry.proto.common.v1.InstrumentationScope;
 import io.opentelemetry.proto.common.v1.KeyValue;

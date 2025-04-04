@@ -1,15 +1,9 @@
 package io.middleware.android.sdk.core.replay;
 
-import android.util.JsonToken;
+import org.jetbrains.annotations.Nullable;
 
-import com.google.gson.JsonDeserializer;
-
-import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 public final class ReplayRecording {
 

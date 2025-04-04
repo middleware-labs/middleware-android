@@ -1,6 +1,7 @@
 package io.middleware.android.sdk;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.mock;
 
 import android.location.Location;
@@ -26,7 +27,8 @@ class NoOpMiddlewareTest {
         OkHttpClient okHttpClient = mock(OkHttpClient.class);
         assertSame(okHttpClient, instance.createRumOkHttpCallFactory(okHttpClient));
 
-        instance.updateGlobalAttributes(attributesBuilder -> {});
+        instance.updateGlobalAttributes(attributesBuilder -> {
+        });
         instance.setGlobalAttribute(AttributeKey.stringKey("foo"), "bar");
         instance.flushSpans();
 

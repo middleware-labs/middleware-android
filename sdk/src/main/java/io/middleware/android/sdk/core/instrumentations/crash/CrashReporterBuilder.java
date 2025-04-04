@@ -1,10 +1,10 @@
 package io.middleware.android.sdk.core.instrumentations.crash;
 
-import io.opentelemetry.android.instrumentation.crash.CrashDetails;
-import io.opentelemetry.instrumentation.api.instrumenter.AttributesExtractor;
-
 import java.util.ArrayList;
 import java.util.List;
+
+import io.opentelemetry.android.instrumentation.crash.CrashDetails;
+import io.opentelemetry.instrumentation.api.instrumenter.AttributesExtractor;
 
 /**
  * A builder of {@link CrashReporter}.

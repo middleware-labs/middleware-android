@@ -25,7 +25,6 @@ import io.opentelemetry.android.config.OtelRumConfig;
 import io.opentelemetry.android.instrumentation.anr.AnrInstrumentation;
 import io.opentelemetry.android.instrumentation.network.NetworkChangeInstrumentation;
 import io.opentelemetry.android.instrumentation.slowrendering.SlowRenderingInstrumentation;
-
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.context.propagation.TextMapPropagator;

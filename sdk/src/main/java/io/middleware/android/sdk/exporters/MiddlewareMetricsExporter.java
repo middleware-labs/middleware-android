@@ -1,7 +1,5 @@
 package io.middleware.android.sdk.exporters;
 
-import android.util.Log;
-
 import androidx.annotation.NonNull;
 
 import java.util.Collection;
@@ -22,7 +20,7 @@ public class MiddlewareMetricsExporter implements MetricExporter {
 
     @Override
     public CompletableResultCode export(@NonNull Collection<MetricData> metrics) {
-        try{
+        try {
             return metricExporter.export(metrics);
         } catch (Exception e) {
             return CompletableResultCode.ofFailure();

@@ -51,6 +51,7 @@ public class ConfigFlags {
     public boolean isRecordingEnabled() {
         return recordingEnabled;
     }
+
     public boolean isActivityLifecycleEnabled() {
         return activityLifecycleEnabled;
     }
