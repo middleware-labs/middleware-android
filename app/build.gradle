@@ -4,7 +4,7 @@ plugins {
 
 android {
     namespace 'io.middleware.android.sample'
-    compileSdk 34
+    compileSdk 35
     def secretPropertiesFile = rootProject.file("secrets.properties")
     def secretProperties = new Properties()
     secretProperties.load(new FileInputStream(secretPropertiesFile))
@@ -15,7 +15,6 @@ android {
         targetSdk 33
         versionCode 1
         versionName "1.0"
-
 
         buildConfigField(
                 "String",
@@ -48,29 +47,26 @@ android {
 }
 
 dependencies {
-    implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha:1.32.1-alpha'
-    implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'com.google.android.material:material:1.10.0'
-    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
-    implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("androidx.webkit:webkit:1.8.0")
-    implementation("androidx.browser:browser:1.6.0")
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'com.google.android.material:material:1.12.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.2.1'
+    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("androidx.webkit:webkit:1.13.0")
+    implementation("androidx.browser:browser:1.8.0")
     implementation project(path: ':sdk')
-    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.3"
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.5"
 
     implementation "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api"
     implementation "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api-semconv"
     implementation 'io.opentelemetry.instrumentation:opentelemetry-okhttp-3.0:1.32.1-alpha'
-    implementation("io.opentelemetry:opentelemetry-api-events")
-    implementation("io.opentelemetry:opentelemetry-sdk-logs")
-    implementation("io.opentelemetry:opentelemetry-sdk")
-    implementation("androidx.navigation:navigation-fragment:2.7.5")
-    implementation("androidx.navigation:navigation-ui:2.7.5")
-    implementation 'androidx.work:work-runtime:2.8.1'
-    implementation "androidx.concurrent:concurrent-futures:1.1.0"
+    implementation("io.opentelemetry:opentelemetry-sdk:1.48.0")
+    implementation("androidx.navigation:navigation-fragment:2.8.9")
+    implementation("androidx.navigation:navigation-ui:2.8.9")
+    implementation 'androidx.work:work-runtime:2.10.0'
+    implementation "androidx.concurrent:concurrent-futures:1.2.0"
+    implementation("io.opentelemetry.instrumentation:opentelemetry-instrumentation-api-semconv:1.31.0-alpha")
     implementation 'com.google.guava:guava:29.0-android'
     testImplementation 'junit:junit:4.13.2'
-    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
-    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
-
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
 }

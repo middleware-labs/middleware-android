@@ -12,7 +12,6 @@ import java.time.Duration;
 
 import io.middleware.android.sdk.Middleware;
 import io.middleware.android.sdk.core.models.ConfigFlags;
-import io.opentelemetry.android.instrumentation.network.CurrentNetworkProvider;
 import io.opentelemetry.api.common.Attributes;
 
 public final class MiddlewareBuilder {
@@ -203,7 +202,7 @@ public final class MiddlewareBuilder {
             throw new IllegalStateException(
                     "You must provide a rumAccessToken, target, projectName and an serviceName to create a valid Config instance.");
         }
-        return Middleware.initialize(this, application, CurrentNetworkProvider::createAndStart);
+        return Middleware.initialize(this, application);
     }
 
     public boolean isAnrDetectionEnabled() {

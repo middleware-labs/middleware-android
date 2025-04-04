@@ -21,13 +21,9 @@ import java.util.concurrent.TimeUnit;
 import io.middleware.android.sdk.Middleware;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
-import io.opentelemetry.api.events.EventEmitter;
-import io.opentelemetry.api.events.EventEmitterProvider;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.context.Scope;
-import io.opentelemetry.sdk.OpenTelemetrySdk;
-import io.opentelemetry.sdk.logs.internal.SdkEventEmitterProvider;
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.OkHttpClient;
@@ -54,8 +50,8 @@ public class MainActivity extends AppCompatActivity {
         httpButton.setOnClickListener(v -> {
             middleware.addEvent("click", Attributes.empty());
             Span workflow = middleware.startWorkflow("MAKE HTTP CUSTOM CALL");
-            makeCall("http://pmrum.o11ystore.com/?user=me&pass=secret123secret", workflow);
-            makeRawCall("https://demo.mw.dev/api/products?currencyCode=USD");
+            makeCall("https://dummyjson.com/products", workflow);
+            makeRawCall("https://dummyjson.com/products/1");
             middleware.setGlobalAttribute(AttributeKey.longKey("customerId"), 123456L);
             count++;
             middleware.d("BUTTONS", "User tapped the HTTP Call Button " + count + " times");
@@ -204,17 +200,5 @@ public class MainActivity extends AppCompatActivity {
                     }
                 });
 
-    }
-
-    public static void emitEvent(Middleware middleware, String eventDomain, String eventName) {
-        EventEmitterProvider eventEmitterProvider =
-                SdkEventEmitterProvider.create(
-                        ((OpenTelemetrySdk) middleware.getOpenTelemetry()).getSdkLoggerProvider());
-        EventEmitter eventEmitter =
-                eventEmitterProvider
-                        .eventEmitterBuilder("test")
-                        .setEventDomain(eventDomain)
-                        .build();
-        eventEmitter.emit(eventName, Attributes.empty());
     }
 }
