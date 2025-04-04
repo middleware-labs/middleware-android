@@ -4,7 +4,7 @@ plugins {
 }
 
 mavenPublishing {
-    coordinates("io.github.middleware-labs", "android-sdk", "2.0.9")
+    coordinates("io.github.middleware-labs", "android-sdk", "2.0.10")
 
     pom {
         name = "Middleware Android RUM SDK"
@@ -74,7 +74,6 @@ dependencies {
     implementation 'io.opentelemetry.android:common:0.10.0-alpha'
     implementation 'io.opentelemetry.contrib:opentelemetry-disk-buffering:1.31.0-alpha'
     implementation('io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:2.14.0')
-    implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation('io.opentelemetry:opentelemetry-exporter-otlp:1.48.0')
     implementation 'com.google.code.gson:gson:2.11.0'
     implementation('io.opentelemetry:opentelemetry-extension-trace-propagators:1.48.0')
