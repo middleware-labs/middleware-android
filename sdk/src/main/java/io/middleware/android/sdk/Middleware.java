@@ -10,7 +10,6 @@ import static io.middleware.android.sdk.utils.Constants.LOG_TAG;
 import static io.middleware.android.sdk.utils.Constants.RUM_TRACER_NAME;
 import static io.middleware.android.sdk.utils.Constants.WORKFLOW_NAME_KEY;
 
-import android.app.Activity;
 import android.app.Application;
 import android.location.Location;
 import android.os.Build;
@@ -32,17 +31,16 @@ import io.middleware.android.sdk.builders.MiddlewareBuilder;
 import io.middleware.android.sdk.core.RumInitializer;
 import io.middleware.android.sdk.core.RumSetup;
 import io.middleware.android.sdk.core.models.NativeRumSessionId;
-import io.middleware.android.sdk.core.replay.v2.ActivityCallbacks;
 import io.middleware.android.sdk.core.replay.MiddlewareRecorder;
-import io.middleware.android.sdk.core.replay.v2.MiddlewareScreenshotManager;
 import io.middleware.android.sdk.core.replay.ReplayRecording;
+import io.middleware.android.sdk.core.replay.v2.ActivityCallbacks;
+import io.middleware.android.sdk.core.replay.v2.MiddlewareScreenshotManager;
 import io.middleware.android.sdk.extractors.RumResponseAttributesExtractor;
 import io.middleware.android.sdk.interfaces.IMiddleware;
 import io.middleware.android.sdk.utils.ServerTimingHeaderParser;
 import io.opentelemetry.android.GlobalAttributesSpanAppender;
 import io.opentelemetry.android.OpenTelemetryRum;
-import io.opentelemetry.android.instrumentation.network.CurrentNetworkProvider;
-import io.opentelemetry.android.instrumentation.startup.AppStartupTimer;
+import io.opentelemetry.android.instrumentation.activity.startup.AppStartupTimer;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
@@ -51,10 +49,13 @@ import io.opentelemetry.api.logs.Logger;
 import io.opentelemetry.api.logs.Severity;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.instrumentation.api.instrumenter.SpanNameExtractor;
 import io.opentelemetry.instrumentation.okhttp.v3_0.OkHttpTelemetry;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
 import okhttp3.Call;
+import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
+import okhttp3.Request;
 
 /**
  * Entrypoint for the Middleware OpenTelemetry Instrumentation for Android.
@@ -94,15 +95,14 @@ public class Middleware implements IMiddleware {
     // for testing purposes
     public static Middleware initialize(
             MiddlewareBuilder builder,
-            Application application,
-            Function<Application, CurrentNetworkProvider> currentNetworkProviderFactory) {
+            Application application) {
         if (INSTANCE != null) {
             Log.w(LOG_TAG, "Singleton Middleware instance has already been initialized.");
             return INSTANCE;
         }
 
         rumInitializer = new RumInitializer(builder, application, startupTimer);
-        INSTANCE = rumInitializer.initialize(currentNetworkProviderFactory, Looper.getMainLooper());
+        INSTANCE = rumInitializer.initialize(Looper.getMainLooper());
         LOGGER = INSTANCE.getOpenTelemetry().getLogsBridge()
                 .loggerBuilder(builder.serviceName)
                 .build();
@@ -151,8 +151,27 @@ public class Middleware implements IMiddleware {
         return new MiddlewareRecorder(this);
     }
 
-    public void startNativeRecording(Activity activity) {
-        middlewareScreenshotManager.setActivity(activity);
+
+    /**
+     * @return {@code true} if the recording started successfully.
+     */
+    public boolean startRecording() {
+        if (middlewareScreenshotManager != null) {
+            middlewareScreenshotManager.start();
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * @return @{code true} if session recording stopped successfully.
+     */
+    public boolean stopRecording() {
+        if (middlewareScreenshotManager != null) {
+            middlewareScreenshotManager.stop();
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -169,9 +188,14 @@ public class Middleware implements IMiddleware {
     }
 
     private OkHttpTelemetry createOkHttpTracing() {
+        Function<SpanNameExtractor<? super Interceptor.Chain>, SpanNameExtractor<? super Interceptor.Chain>> networkSpanNameExtractor =
+                defaultExtractor -> (requestChain -> {
+                    Request request = requestChain.request();
+                    return "HTTP " + request.method() + " " + request.url().encodedPath();
+                });
         return OkHttpTelemetry.builder(getOpenTelemetry())
-                .addAttributesExtractor(
-                        new RumResponseAttributesExtractor(new ServerTimingHeaderParser()))
+                .setSpanNameExtractor(networkSpanNameExtractor)
+                .addAttributesExtractor(new RumResponseAttributesExtractor(new ServerTimingHeaderParser()))
                 .build();
     }
 
@@ -227,7 +251,7 @@ public class Middleware implements IMiddleware {
                 .put("mw.client_origin", BASE_ORIGIN)
                 .put("rum_origin", BASE_ORIGIN)
                 .put("origin", BASE_ORIGIN)
-                .put("session_id", getRumSessionId())
+                .put("session.id", getRumSessionId())
                 .build();
         rumInitializer.sendRumEvent(replayRecording, newAttributes);
     }

@@ -1,12 +1,9 @@
 package io.middleware.android.sdk.core;
 
 import static io.middleware.android.sdk.utils.Constants.BASE_ORIGIN;
-import static io.middleware.android.sdk.utils.Constants.COMPONENT_APPSTART;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_ERROR;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_KEY;
-import static io.middleware.android.sdk.utils.Constants.COMPONENT_UI;
 import static io.middleware.android.sdk.utils.Constants.EVENT_TYPE;
-import static io.opentelemetry.android.RumConstants.APP_START_SPAN_NAME;
 import static io.opentelemetry.instrumentation.api.instrumenter.AttributesExtractor.constant;
 
 import android.app.Application;
@@ -14,40 +11,28 @@ import android.os.Looper;
 
 import java.time.Duration;
 import java.util.Objects;
-import java.util.function.Function;
 
-import io.middleware.android.sdk.core.models.ScreenAttributesAppender;
+import io.middleware.android.sdk.core.instrumentations.crash.CrashAttributesExtractor;
+import io.middleware.android.sdk.core.instrumentations.crash.CrashInstrumentation;
 import io.middleware.android.sdk.exporters.MiddlewareLogsExporter;
 import io.middleware.android.sdk.exporters.MiddlewareMetricsExporter;
 import io.middleware.android.sdk.exporters.MiddlewareSpanExporter;
-import io.middleware.android.sdk.extractors.CrashComponentExtractor;
-import io.middleware.android.sdk.extractors.MiddlewareScreenNameExtractor;
 import io.middleware.android.sdk.interfaces.IRumSetup;
 import io.opentelemetry.android.GlobalAttributesSpanAppender;
 import io.opentelemetry.android.OpenTelemetryRum;
 import io.opentelemetry.android.OpenTelemetryRumBuilder;
-import io.opentelemetry.android.RuntimeDetailsExtractor;
-import io.opentelemetry.android.instrumentation.activity.VisibleScreenTracker;
-import io.opentelemetry.android.instrumentation.anr.AnrDetector;
-import io.opentelemetry.android.instrumentation.crash.CrashReporter;
-import io.opentelemetry.android.instrumentation.lifecycle.AndroidLifecycleInstrumentation;
-import io.opentelemetry.android.instrumentation.network.CurrentNetworkProvider;
-import io.opentelemetry.android.instrumentation.network.NetworkAttributesSpanAppender;
-import io.opentelemetry.android.instrumentation.network.NetworkChangeMonitor;
-import io.opentelemetry.android.instrumentation.slowrendering.SlowRenderingDetector;
-import io.opentelemetry.android.instrumentation.startup.AppStartupTimer;
+import io.opentelemetry.android.config.OtelRumConfig;
+import io.opentelemetry.android.instrumentation.anr.AnrInstrumentation;
+import io.opentelemetry.android.instrumentation.network.NetworkChangeInstrumentation;
+import io.opentelemetry.android.instrumentation.slowrendering.SlowRenderingInstrumentation;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
-import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.propagation.TextMapPropagator;
 import io.opentelemetry.exporter.logging.LoggingSpanExporter;
 import io.opentelemetry.exporter.otlp.http.logs.OtlpHttpLogRecordExporter;
-import io.opentelemetry.exporter.otlp.http.metrics.OtlpHttpMetricExporter;
 import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter;
 import io.opentelemetry.sdk.logs.export.SimpleLogRecordProcessor;
-import io.opentelemetry.sdk.metrics.export.PeriodicMetricReader;
 import io.opentelemetry.sdk.resources.Resource;
-import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 
@@ -58,29 +43,13 @@ public class RumSetup implements IRumSetup {
     private MiddlewareMetricsExporter middlewareMetricsExporter;
 
     public RumSetup(Application application) {
-        openTelemetryRumBuilder = OpenTelemetryRum.builder(application);
-    }
-
-    @Override
-    public void setMetrics(String baseEndpoint, Resource middlewareResource) {
-        this.middlewareMetricsExporter = new MiddlewareMetricsExporter(
-                OtlpHttpMetricExporter
-                        .builder()
-                        .setEndpoint(baseEndpoint + "/v1/metrics")
-                        .setTimeout(Duration.ofMillis(10000))
-                        .addHeader("Authorization", Objects.requireNonNull(middlewareResource
-                                .getAttribute(AttributeKey.stringKey("mw.account_key"))))
-                        .addHeader("Origin", BASE_ORIGIN)
-                        .addHeader("Content-Type", "application/json")
-                        .addHeader("Access-Control-Allow-Headers", "*")
-                        .build()
-        );
-        openTelemetryRumBuilder.addMeterProviderCustomizer((sdkMeterProviderBuilder, application1) -> {
-            sdkMeterProviderBuilder.addResource(middlewareResource);
-            sdkMeterProviderBuilder.registerMetricReader(
-                    PeriodicMetricReader.create(middlewareMetricsExporter));
-            return sdkMeterProviderBuilder;
-        });
+        final OtelRumConfig otelRumConfig = new OtelRumConfig();
+        otelRumConfig.shouldIncludeNetworkAttributes();
+        otelRumConfig.shouldDiscoverInstrumentations();
+        otelRumConfig.shouldIncludeScreenAttributes();
+        otelRumConfig.shouldGenerateSdkInitializationEvents();
+        openTelemetryRumBuilder = OpenTelemetryRum.builder(application, otelRumConfig);
+        openTelemetryRumBuilder.addInstrumentation(new SessionInstrumentation());
     }
 
     @Override
@@ -162,27 +131,6 @@ public class RumSetup implements IRumSetup {
     }
 
     @Override
-    public void setScreenAttributes(VisibleScreenTracker visibleScreenTracker) {
-        openTelemetryRumBuilder.addTracerProviderCustomizer((sdkTracerProviderBuilder, application1) -> {
-            ScreenAttributesAppender screenAttributesAppender =
-                    new ScreenAttributesAppender(visibleScreenTracker);
-            sdkTracerProviderBuilder.addSpanProcessor(screenAttributesAppender);
-            return sdkTracerProviderBuilder;
-        });
-    }
-
-
-    @Override
-    public void setNetworkAttributes(CurrentNetworkProvider currentNetworkProvider) {
-        openTelemetryRumBuilder.addTracerProviderCustomizer(
-                (tracerProviderBuilder, app) -> {
-                    SpanProcessor networkAttributesSpanAppender =
-                            NetworkAttributesSpanAppender.create(currentNetworkProvider);
-                    return tracerProviderBuilder.addSpanProcessor(networkAttributesSpanAppender);
-                });
-    }
-
-    @Override
     public void setPropagators() {
         openTelemetryRumBuilder.addPropagatorCustomizer(textMapPropagator -> TextMapPropagator.composite(textMapPropagator,
                 io.opentelemetry.extension.trace.propagation.B3Propagator.injectingSingleHeader()
@@ -191,79 +139,30 @@ public class RumSetup implements IRumSetup {
 
     @Override
     public void setAnrDetector(Looper mainLooper) {
-        openTelemetryRumBuilder.addInstrumentation(
-                instrumentedApplication -> {
-                    AnrDetector.builder()
-                            .addAttributesExtractor(constant(COMPONENT_KEY, COMPONENT_ERROR))
-                            .addAttributesExtractor(constant(EVENT_TYPE, COMPONENT_ERROR))
-                            .setMainLooper(mainLooper)
-                            .build()
-                            .installOn(instrumentedApplication);
-                });
+        AnrInstrumentation anrInstrumentation = new AnrInstrumentation();
+        anrInstrumentation.addAttributesExtractor(constant(COMPONENT_KEY, COMPONENT_ERROR));
+        anrInstrumentation.addAttributesExtractor(constant(EVENT_TYPE, COMPONENT_ERROR));
+        anrInstrumentation.setMainLooper(mainLooper);
+        openTelemetryRumBuilder.addInstrumentation(anrInstrumentation);
     }
 
     @Override
-    public void setNetworkMonitor(CurrentNetworkProvider currentNetworkProvider) {
-        openTelemetryRumBuilder.addInstrumentation(
-                instrumentedApplication -> {
-                    NetworkChangeMonitor.create(currentNetworkProvider)
-                            .installOn(instrumentedApplication);
-                });
+    public void setNetworkMonitor() {
+        openTelemetryRumBuilder.addInstrumentation(new NetworkChangeInstrumentation());
     }
 
     @Override
     public void setSlowRenderingDetector(Duration slowRenderingDetectionPollInterval) {
-        openTelemetryRumBuilder.addInstrumentation(
-                instrumentedApplication -> {
-                    SlowRenderingDetector.builder()
-                            .setSlowRenderingDetectionPollInterval(
-                                    slowRenderingDetectionPollInterval)
-                            .build()
-                            .installOn(instrumentedApplication);
-                });
+        SlowRenderingInstrumentation slowRenderingInstrumentation = new SlowRenderingInstrumentation();
+        slowRenderingInstrumentation.setSlowRenderingDetectionPollInterval(slowRenderingDetectionPollInterval);
+        openTelemetryRumBuilder.addInstrumentation(slowRenderingInstrumentation);
     }
 
     @Override
     public void setCrashReporter() {
-        openTelemetryRumBuilder.addInstrumentation(
-                instrumentedApplication -> {
-                    CrashReporter.builder()
-                            .addAttributesExtractor(
-                                    RuntimeDetailsExtractor.create(
-                                            instrumentedApplication
-                                                    .getApplication()
-                                                    .getApplicationContext()))
-                            .addAttributesExtractor(new CrashComponentExtractor())
-                            .build()
-                            .installOn(instrumentedApplication);
-                });
-    }
-
-    @Override
-    public void setLifecycleInstrumentations(VisibleScreenTracker visibleScreenTracker, AppStartupTimer appStartupTimer) {
-        openTelemetryRumBuilder.addInstrumentation(
-                instrumentedApp -> {
-                    Function<Tracer, Tracer> tracerCustomizer =
-                            tracer ->
-                                    (Tracer)
-                                            spanName -> {
-                                                String component =
-                                                        spanName.equals(APP_START_SPAN_NAME)
-                                                                ? COMPONENT_APPSTART
-                                                                : COMPONENT_UI;
-                                                return tracer.spanBuilder(spanName)
-                                                        .setAttribute(EVENT_TYPE, "app_activity")
-                                                        .setAttribute(COMPONENT_KEY, component);
-                                            };
-                    AndroidLifecycleInstrumentation instrumentation =
-                            AndroidLifecycleInstrumentation.builder()
-                                    .setVisibleScreenTracker(visibleScreenTracker)
-                                    .setStartupTimer(appStartupTimer)
-                                    .setTracerCustomizer(tracerCustomizer)
-                                    .setScreenNameExtractor(MiddlewareScreenNameExtractor.INSTANCE)
-                                    .build();
-                    instrumentation.installOn(instrumentedApp);
-                });
+        CrashInstrumentation crashReporterInstrumentation = new CrashInstrumentation();
+        crashReporterInstrumentation.addAttributesExtractor(new CrashAttributesExtractor());
+        openTelemetryRumBuilder.addInstrumentation(crashReporterInstrumentation);
     }
 
     @Override

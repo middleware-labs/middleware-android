@@ -1,6 +1,5 @@
 package io.middleware.android.sdk.extractors;
 
-
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_CRASH;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_ERROR;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_KEY;
@@ -9,13 +8,14 @@ import static io.opentelemetry.sdk.testing.assertj.OpenTelemetryAssertions.asser
 
 import org.junit.jupiter.api.Test;
 
+import io.middleware.android.sdk.core.instrumentations.crash.CrashAttributesExtractor;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 
 public class CrashComponentExtractorTest {
     @Test
     void shouldSetCrashComponent() {
-        CrashComponentExtractor crashComponentExtractor = new CrashComponentExtractor();
+        CrashAttributesExtractor crashComponentExtractor = new CrashAttributesExtractor();
         AttributesBuilder attributesBuilder = Attributes.builder();
         crashComponentExtractor.onStart(attributesBuilder, null, null);
         assertThat(attributesBuilder.build())

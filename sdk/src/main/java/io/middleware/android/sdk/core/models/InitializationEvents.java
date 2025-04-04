@@ -4,14 +4,14 @@ import static io.middleware.android.sdk.utils.Constants.COMPONENT_APPSTART;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_KEY;
 import static io.middleware.android.sdk.utils.Constants.EVENT_TYPE;
 
-import io.opentelemetry.android.instrumentation.startup.AppStartupTimer;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.context.Context;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+
+import io.opentelemetry.android.instrumentation.activity.startup.AppStartupTimer;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 
 public class InitializationEvents {
     private final AppStartupTimer startupTimer;

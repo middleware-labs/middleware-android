@@ -1,6 +1,7 @@
 package io.middleware.android.sdk.utils;
 
 import androidx.annotation.Nullable;
+
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -21,6 +22,6 @@ public class ServerTimingHeaderParser {
         }
         String traceId = matcher.group(1);
         String spanId = matcher.group(2);
-        return new String[] {traceId, spanId};
+        return new String[]{traceId, spanId};
     }
 }
