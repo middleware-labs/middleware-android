@@ -1,4 +1,3 @@
-
 package io.middleware.android.sdk.extractors;
 
 import android.app.Activity;

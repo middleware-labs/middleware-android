@@ -4,6 +4,7 @@ import static java.util.Objects.requireNonNull;
 import static io.middleware.android.sdk.utils.Constants.APP_NAME_KEY;
 import static io.middleware.android.sdk.utils.Constants.BASE_ORIGIN;
 import static io.middleware.android.sdk.utils.Constants.RUM_TRACER_NAME;
+import static io.opentelemetry.api.common.AttributeKey.stringKey;
 import static io.opentelemetry.semconv.ResourceAttributes.BROWSER_MOBILE;
 import static io.opentelemetry.semconv.ResourceAttributes.DEPLOYMENT_ENVIRONMENT;
 import static io.opentelemetry.semconv.ResourceAttributes.SERVICE_NAME;
@@ -254,6 +255,9 @@ public class RumInitializer implements IRum {
         resourceBuilder.put("mw.rum", true);
         resourceBuilder.put("mw.account_key", builder.rumAccessToken);
         resourceBuilder.put("browser.trace", "true");
+        resourceBuilder.removeIf(attributeKey -> attributeKey.equals(stringKey("os.name")));
+        resourceBuilder.put("os", "Android");
+        resourceBuilder.put("recording", builder.isRecordingEnabled() ? "1" : "0");
         resourceBuilder.put(BROWSER_MOBILE.getKey(), "true");
         return resourceBuilder.build();
     }

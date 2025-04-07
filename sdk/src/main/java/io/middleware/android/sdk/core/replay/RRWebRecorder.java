@@ -19,7 +19,6 @@ import android.util.Pair;
 import android.view.MotionEvent;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 

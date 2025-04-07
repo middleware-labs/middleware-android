@@ -56,12 +56,11 @@ dependencies {
     implementation("androidx.webkit:webkit:1.8.0")
     implementation("androidx.browser:browser:1.6.0")
     implementation project(path: ':sdk')
-    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.3"
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.4"
 
     implementation "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api"
     implementation "io.opentelemetry.instrumentation:opentelemetry-instrumentation-api-semconv"
     implementation 'io.opentelemetry.instrumentation:opentelemetry-okhttp-3.0:1.32.1-alpha'
-    implementation("io.opentelemetry:opentelemetry-api-events")
     implementation("io.opentelemetry:opentelemetry-sdk-logs")
     implementation("io.opentelemetry:opentelemetry-sdk")
     implementation("androidx.navigation:navigation-fragment:2.7.5")

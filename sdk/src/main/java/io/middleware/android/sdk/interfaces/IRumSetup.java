@@ -45,7 +45,9 @@ public interface IRumSetup {
     void mergeResource(Resource middlewareResource);
 
     MiddlewareSpanExporter getSpanExporter();
+
     MiddlewareMetricsExporter getMetricsExporter();
+
     MiddlewareLogsExporter getLogsExporter();
 
     Attributes modifyEventAttributes(String eventName, Attributes attributes);

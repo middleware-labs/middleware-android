@@ -2,7 +2,6 @@ package io.middleware.android.sdk.extractors;
 
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_KEY;
 import static io.middleware.android.sdk.utils.Constants.EVENT_TYPE;
-import static io.middleware.android.sdk.utils.Constants.LINK_PARENT_SPAN_ID_KEY;
 import static io.middleware.android.sdk.utils.Constants.LINK_SPAN_ID_KEY;
 import static io.middleware.android.sdk.utils.Constants.LINK_TRACE_ID_KEY;
 
@@ -46,5 +45,13 @@ public class RumResponseAttributesExtractor implements AttributesExtractor<Reque
             attributes.put(LINK_TRACE_ID_KEY, ids[0]);
             attributes.put(LINK_SPAN_ID_KEY, ids[1]);
         }
+        attributes.put("http.status_code", response.code());
+        attributes.put("http.method", response.request().method());
+        response.headers().forEach(header -> {
+            attributes.put("http.response.header." + header.getFirst(), header.getSecond());
+        });
+        response.request().headers().forEach(header -> {
+            attributes.put("http.request.header." + header.getFirst(), header.getSecond());
+        });
     }
 }

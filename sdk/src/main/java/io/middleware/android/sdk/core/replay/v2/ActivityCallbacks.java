@@ -47,6 +47,8 @@ public class ActivityCallbacks implements Application.ActivityLifecycleCallbacks
 
     @Override
     public void onActivityDestroyed(@NonNull Activity activity) {
-
+        if (middlewareScreenshotManager != null) {
+            middlewareScreenshotManager.stop();
+        }
     }
 }

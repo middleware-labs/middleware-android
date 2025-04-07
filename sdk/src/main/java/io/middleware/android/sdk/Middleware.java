@@ -32,10 +32,10 @@ import io.middleware.android.sdk.builders.MiddlewareBuilder;
 import io.middleware.android.sdk.core.RumInitializer;
 import io.middleware.android.sdk.core.RumSetup;
 import io.middleware.android.sdk.core.models.NativeRumSessionId;
-import io.middleware.android.sdk.core.replay.v2.ActivityCallbacks;
 import io.middleware.android.sdk.core.replay.MiddlewareRecorder;
-import io.middleware.android.sdk.core.replay.v2.MiddlewareScreenshotManager;
 import io.middleware.android.sdk.core.replay.ReplayRecording;
+import io.middleware.android.sdk.core.replay.v2.ActivityCallbacks;
+import io.middleware.android.sdk.core.replay.v2.MiddlewareScreenshotManager;
 import io.middleware.android.sdk.extractors.RumResponseAttributesExtractor;
 import io.middleware.android.sdk.interfaces.IMiddleware;
 import io.middleware.android.sdk.utils.ServerTimingHeaderParser;
@@ -152,7 +152,31 @@ public class Middleware implements IMiddleware {
     }
 
     public void startNativeRecording(Activity activity) {
-        middlewareScreenshotManager.setActivity(activity);
+        if (middlewareScreenshotManager != null) {
+            middlewareScreenshotManager.setActivity(activity);
+        }
+    }
+
+    /**
+     * @return {@code true} if the recording started successfully.
+     */
+    public boolean startRecording() {
+        if (middlewareScreenshotManager != null) {
+            middlewareScreenshotManager.start();
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * @return @{code true} if session recording stopped successfully.
+     */
+    public boolean stopRecording() {
+        if (middlewareScreenshotManager != null) {
+            middlewareScreenshotManager.stop();
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -227,7 +251,7 @@ public class Middleware implements IMiddleware {
                 .put("mw.client_origin", BASE_ORIGIN)
                 .put("rum_origin", BASE_ORIGIN)
                 .put("origin", BASE_ORIGIN)
-                .put("session_id", getRumSessionId())
+                .put("session.id", getRumSessionId())
                 .build();
         rumInitializer.sendRumEvent(replayRecording, newAttributes);
     }

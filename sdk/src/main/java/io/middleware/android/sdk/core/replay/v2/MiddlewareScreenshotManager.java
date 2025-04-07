@@ -39,6 +39,7 @@ public class MiddlewareScreenshotManager {
     private Handler handler = new Handler(Looper.getMainLooper());
     private static final long SCREENSHOT_INTERVAL = 330;
     private Activity currentActivity;
+    private Runnable screenshotRunnable;
 
     public MiddlewareScreenshotManager(Long firstTime, String target, String token) {
         this.bitmaps = new ArrayList<>();
@@ -63,8 +64,8 @@ public class MiddlewareScreenshotManager {
         });
     }
 
-    private void start() {
-        final Runnable screenshotRunnable = new Runnable() {
+    public void start() {
+        screenshotRunnable = new Runnable() {
             @Override
             public void run() {
                 View rootView = currentActivity.getWindow().getDecorView().getRootView();
@@ -104,6 +105,14 @@ public class MiddlewareScreenshotManager {
         // Initial delay before the first screenshot
         handler.postDelayed(screenshotRunnable, SCREENSHOT_INTERVAL);
 
+    }
+
+    public void stop() {
+        if (handler != null && screenshotRunnable != null) {
+            handler.removeCallbacks(screenshotRunnable);
+            this.screenshotRunnable = null;
+            Log.d(LOG_TAG, "Middleware session recording stopped.");
+        }
     }
 
     private RectF getElementFrameInWindow(View element) {
