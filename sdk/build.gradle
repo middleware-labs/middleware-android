@@ -85,14 +85,14 @@ dependencies {
     implementation 'androidx.annotation:annotation-jvm:1.9.1'
     implementation 'androidx.fragment:fragment:1.8.6'
     coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.4"
-    testImplementation('org.mockito:mockito-core:5.16.1')
-    testImplementation('org.mockito:mockito-junit-jupiter:5.16.1')
-    testImplementation(platform('org.junit:junit-bom:5.12.1'))
+    testImplementation('org.mockito:mockito-core:5.7.0')
+    testImplementation('org.mockito:mockito-junit-jupiter:5.7.0')
+    testImplementation(platform('org.junit:junit-bom:5.10.1'))
     testImplementation("org.junit.jupiter:junit-jupiter-api")
     testImplementation("org.junit.jupiter:junit-jupiter-engine")
     testImplementation("org.junit.vintage:junit-vintage-engine")
     testImplementation("io.opentelemetry:opentelemetry-sdk-testing")
-    testImplementation('org.robolectric:robolectric:4.14.1')
-    testImplementation("androidx.test:core:1.6.1")
-    testImplementation("org.assertj:assertj-core:3.27.3")
+    testImplementation('org.robolectric:robolectric:4.11.1')
+    testImplementation("androidx.test:core:1.5.0")
+    testImplementation("org.assertj:assertj-core:3.24.2")
 }

@@ -50,7 +50,7 @@ public class MiddlewareTest {
     private Tracer tracer;
 
     @RegisterExtension
-    final OpenTelemetryExtension openTelemetryExtension = OpenTelemetryExtension.create();
+    final static OpenTelemetryExtension openTelemetryExtension = OpenTelemetryExtension.create();
     @Mock
     private OpenTelemetryRum openTelemetryRum;
     @Mock
