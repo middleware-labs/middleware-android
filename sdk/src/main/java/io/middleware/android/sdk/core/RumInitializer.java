@@ -125,19 +125,6 @@ public class RumInitializer implements IRum {
         }
 
         final OpenTelemetryRum openTelemetryRum = rumSetup.build();
-        final Meter build = openTelemetryRum.getOpenTelemetry()
-                .getMeterProvider()
-                .meterBuilder("mw-counter")
-                .build();
-        final LongCounter userStatus = build
-                .counterBuilder("user.status")
-                .setDescription("User Status")
-                .setUnit("")
-                .build();
-        userStatus.add(1, createMiddlewareResource()
-                .getAttributes().toBuilder()
-                .put("session.id", openTelemetryRum.getRumSessionId()).build()
-        );
         initializerEvent.recordInitializationSpans(
                 builder.getConfigFlags(),
                 openTelemetryRum.getOpenTelemetry().getTracer(RUM_TRACER_NAME));
