@@ -30,7 +30,7 @@ jobs:
       - name: Publish Library
         run: |
           echo "Publishing library🚀"
-          ./gradlew publishAllPublicationsToMavenCentralRepository
+          ./gradlew publishToMavenCentral
           echo "Published✅"
         env:
           ORG_GRADLE_PROJECT_VERSION_NAME: ${{ github.event.inputs.versionName }}
