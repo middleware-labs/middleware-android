@@ -30,7 +30,7 @@ jobs:
       - name: Publish Library
         run: |
           echo "Publishing library🚀"
-          ./gradlew publish --no-daemon --no-parallel -PSONATYPE_AUTOMATIC_RELEASE=true
+          ./gradlew publishToMavenCentral --no-daemon --no-parallel -PSONATYPE_AUTOMATIC_RELEASE=true
           echo "Published✅"
         env:
           ORG_GRADLE_PROJECT_VERSION_NAME: ${{ github.event.inputs.versionName }}
