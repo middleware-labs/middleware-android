@@ -34,7 +34,7 @@ mavenPublishing {
 }
 android {
     namespace 'io.middleware.android.sdk'
-    compileSdk 34
+    compileSdk 36
 
     defaultConfig {
         minSdk 21
