@@ -4,7 +4,7 @@ plugins {
 }
 
 mavenPublishing {
-    publishToMavenCentral()
+    publishToMavenCentral(true)
     signAllPublications()
 
     coordinates("io.github.middleware-labs", "android-sdk", "2.0.11")
