@@ -68,7 +68,7 @@ android {
 }
 
 dependencies {
-    implementation('io.opentelemetry:opentelemetry-exporter-logging')
+    implementation('io.opentelemetry:opentelemetry-exporter-logging:1.48.0')
     implementation ('io.opentelemetry.android:instrumentation:0.4.0-alpha'){
         exclude group: 'io.opentelemetry.contrib', module: 'opentelemetry-disk-buffering'
     }
@@ -77,7 +77,7 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.11.0'
     implementation ('io.opentelemetry:opentelemetry-extension-trace-propagators:1.48.0')
     api "com.squareup.okhttp3:okhttp:4.12.0"
-    implementation ("io.opentelemetry.instrumentation:opentelemetry-okhttp-3.0")
+    implementation ("io.opentelemetry.instrumentation:opentelemetry-okhttp-3.0:1.32.1-alpha")
     implementation ('org.apache.commons:commons-compress:1.26.0') {
         exclude group: 'commons-io', module: 'commons-io'
         exclude group: 'org.apache.commons', module: 'commons-lang3'
