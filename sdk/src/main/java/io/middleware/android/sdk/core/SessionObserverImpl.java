@@ -22,7 +22,7 @@ public class SessionObserverImpl implements io.opentelemetry.android.session.Ses
 
     @Override
     public void onSessionStarted(@NonNull Session session, @NonNull Session session1) {
-        if (middleware != null && middleware.startRecording()) {
+        if (middleware != null) {
             Log.d(LOG_TAG, "Session recording started for sessionId: " + session.getId());
         }
     }

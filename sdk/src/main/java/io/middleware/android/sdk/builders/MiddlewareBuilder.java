@@ -3,7 +3,7 @@ package io.middleware.android.sdk.builders;
 import static io.middleware.android.sdk.utils.Constants.DEFAULT_SLOW_RENDERING_DETECTION_POLL_INTERVAL;
 import static io.middleware.android.sdk.utils.Constants.LOG_TAG;
 
-import android.app.Application;
+import android.content.Context;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
@@ -12,6 +12,9 @@ import java.time.Duration;
 
 import io.middleware.android.sdk.Middleware;
 import io.middleware.android.sdk.core.models.ConfigFlags;
+import io.middleware.android.sdk.core.replay.RecordingFrequency;
+import io.middleware.android.sdk.core.replay.RecordingQuality;
+import io.middleware.android.sdk.core.replay.v2.RecordingOptions;
 import io.opentelemetry.api.common.Attributes;
 
 public final class MiddlewareBuilder {
@@ -32,6 +35,10 @@ public final class MiddlewareBuilder {
     public Attributes globalAttributes = Attributes.empty();
     @Nullable
     public String deploymentEnvironment;
+    public RecordingOptions recordingOptions = new RecordingOptions.Builder()
+            .setFrequency(RecordingFrequency.LOW)
+            .setQuality(RecordingQuality.LOW)
+            .build();
 
     /**
      * Sets the application name that will be used to identify your application in the Middleware RUM
@@ -66,6 +73,14 @@ public final class MiddlewareBuilder {
      */
     public MiddlewareBuilder setRumAccessToken(String rumAuthToken) {
         this.rumAccessToken = rumAuthToken;
+        return this;
+    }
+
+    /**
+     * Set recording options that will be used when doing recording
+     */
+    public MiddlewareBuilder setRecordingOptions(RecordingOptions recordingOptions) {
+        this.recordingOptions = recordingOptions;
         return this;
     }
 
@@ -197,12 +212,12 @@ public final class MiddlewareBuilder {
      * Middleware#getInstance()}. If there was a global {@link Middleware} instance configured before,
      * this method does not initialize a new one and simply returns the existing instance.
      */
-    public Middleware build(Application application) {
+    public Middleware build(Context context) {
         if (rumAccessToken == null || target == null || projectName == null || serviceName == null) {
             throw new IllegalStateException(
                     "You must provide a rumAccessToken, target, projectName and an serviceName to create a valid Config instance.");
         }
-        return Middleware.initialize(this, application);
+        return Middleware.initialize(this, context);
     }
 
     public boolean isAnrDetectionEnabled() {
