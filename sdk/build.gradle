@@ -6,7 +6,7 @@ mavenPublishing {
     publishToMavenCentral(true)
     signAllPublications()
 
-    coordinates("io.github.middleware-labs", "android-sdk", "2.0.9-rn")
+    coordinates("io.github.middleware-labs", "android-sdk", "2.0.10-rn")
 
     pom {
         name = "Middleware Android RUM SDK"

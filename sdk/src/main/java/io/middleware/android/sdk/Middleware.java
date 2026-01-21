@@ -25,6 +25,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
+import java.lang.ref.WeakReference;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -66,6 +67,7 @@ public class Middleware implements IMiddleware {
     private static Middleware INSTANCE;
     private static Logger LOGGER;
     private static MiddlewareScreenshotManager middlewareScreenshotManager;
+    private static LifecycleManager lifecycleManager;
     private final OpenTelemetryRum openTelemetryRum;
 
     private final RumSetup middlewareRum;
@@ -150,8 +152,9 @@ public class Middleware implements IMiddleware {
         return new MiddlewareRecorder(this);
     }
 
-    public void startNativeRecording() {
+    public void startNativeRecording(Activity activity) {
         if (middlewareScreenshotManager != null) {
+            lifecycleManager.setCurrentActivityRef(new WeakReference<>(activity));
             middlewareScreenshotManager.start(System.currentTimeMillis());
         }
     }

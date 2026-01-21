@@ -43,6 +43,10 @@ public class LifecycleManager implements Application.ActivityLifecycleCallbacks 
         application.registerActivityLifecycleCallbacks(this);
     }
 
+    public void setCurrentActivityRef(WeakReference<Activity> currentActivityRef) {
+        this.currentActivityRef = currentActivityRef;
+    }
+
     public Context getContext() {
         return context;
     }
