@@ -4,7 +4,7 @@ plugins {
 
 android {
     namespace 'io.middleware.android.sample'
-    compileSdk 34
+    compileSdk 35
     def secretPropertiesFile = rootProject.file("secrets.properties")
     def secretProperties = new Properties()
     secretProperties.load(new FileInputStream(secretPropertiesFile))
@@ -48,7 +48,6 @@ android {
 }
 
 dependencies {
-    implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha:1.32.1-alpha'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.10.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'

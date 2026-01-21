@@ -9,7 +9,9 @@ import static io.opentelemetry.semconv.ResourceAttributes.BROWSER_MOBILE;
 import static io.opentelemetry.semconv.ResourceAttributes.DEPLOYMENT_ENVIRONMENT;
 import static io.opentelemetry.semconv.ResourceAttributes.SERVICE_NAME;
 
+import android.app.Activity;
 import android.app.Application;
+import android.content.Context;
 import android.os.Looper;
 import android.util.Log;
 
@@ -63,9 +65,15 @@ public class RumInitializer implements IRum {
     private final AppStartupTimer appStartupTimer;
     private final InitializationEvents initializerEvent;
 
-    public RumInitializer(MiddlewareBuilder builder, Application application, AppStartupTimer appStartupTimer) {
+    public RumInitializer(MiddlewareBuilder builder, Context context, AppStartupTimer appStartupTimer) {
         this.builder = builder;
-        this.application = application;
+        if (context instanceof Activity) {
+            this.application = ((Activity) context).getApplication();
+        } else if (context instanceof Application) {
+            this.application = (Application) context;
+        } else {
+            this.application = (Application) context.getApplicationContext();
+        }
         this.appStartupTimer = appStartupTimer;
         this.initializerEvent = new InitializationEvents(appStartupTimer);
     }
