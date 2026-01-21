@@ -48,7 +48,6 @@ android {
 }
 
 dependencies {
-    implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom-alpha:1.32.1-alpha'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.10.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
