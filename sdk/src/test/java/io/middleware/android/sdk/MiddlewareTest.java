@@ -80,9 +80,7 @@ public class MiddlewareTest {
 
         CurrentNetworkProvider currentNetworkProvider =
                 mock(CurrentNetworkProvider.class, RETURNS_DEEP_STUBS);
-        Context context = mock(Context.class);
-
-        when(application.getApplicationContext()).thenReturn(context);
+        when(application.getApplicationContext()).thenReturn(application);
         Middleware singleton =
                 Middleware.initialize(middlewareBuilder, application, app -> currentNetworkProvider);
         Middleware sameInstance = middlewareBuilder.build(application);
@@ -101,9 +99,7 @@ public class MiddlewareTest {
         Application application = mock(Application.class, RETURNS_DEEP_STUBS);
         CurrentNetworkProvider currentNetworkProvider =
                 mock(CurrentNetworkProvider.class, RETURNS_DEEP_STUBS);
-        Context context = mock(Context.class);
-
-        when(application.getApplicationContext()).thenReturn(context);
+        when(application.getApplicationContext()).thenReturn(application);
 
         Middleware singleton =
                 Middleware.initialize(middlewareBuilder, application, app -> currentNetworkProvider);
@@ -160,12 +156,10 @@ public class MiddlewareTest {
     @Test
     void integrateWithBrowserRum() {
         Application application = mock(Application.class, RETURNS_DEEP_STUBS);
+        when(application.getApplicationContext()).thenReturn(application);
         CurrentNetworkProvider currentNetworkProvider =
                 mock(CurrentNetworkProvider.class, RETURNS_DEEP_STUBS);
-        Context context = mock(Context.class);
         WebView webView = mock(WebView.class);
-
-        when(application.getApplicationContext()).thenReturn(context);
 
         Middleware middleware =
                 Middleware.initialize(middlewareBuilder, application, app -> currentNetworkProvider);

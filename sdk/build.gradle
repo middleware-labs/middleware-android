@@ -2,12 +2,11 @@ plugins {
     id 'com.android.library'
     id "com.vanniktech.maven.publish" version "0.34.0"
 }
-
 mavenPublishing {
     publishToMavenCentral(true)
     signAllPublications()
 
-    coordinates("io.github.middleware-labs", "android-sdk", "2.0.8-rn")
+    coordinates("io.github.middleware-labs", "android-sdk", "2.0.9-rn")
 
     pom {
         name = "Middleware Android RUM SDK"
@@ -37,7 +36,7 @@ mavenPublishing {
 }
 android {
     namespace 'io.middleware.android.sdk'
-    compileSdk 34
+    compileSdk 35
 
     defaultConfig {
         minSdk 21
@@ -86,6 +85,7 @@ dependencies {
     implementation 'org.apache.commons:commons-lang3:3.13.0'
     implementation 'commons-codec:commons-codec:1.16.0'
     implementation 'androidx.annotation:annotation-jvm:1.9.1'
+    implementation 'androidx.compose.ui:ui-android:1.9.5'
     implementation 'androidx.fragment:fragment:1.8.6'
     coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.4"
     testImplementation('org.mockito:mockito-core:5.7.0')

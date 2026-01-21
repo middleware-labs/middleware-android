@@ -12,6 +12,7 @@ import static io.middleware.android.sdk.utils.Constants.WORKFLOW_NAME_KEY;
 
 import android.app.Activity;
 import android.app.Application;
+import android.content.Context;
 import android.location.Location;
 import android.os.Build;
 import android.os.Handler;
@@ -34,7 +35,7 @@ import io.middleware.android.sdk.core.RumSetup;
 import io.middleware.android.sdk.core.models.NativeRumSessionId;
 import io.middleware.android.sdk.core.replay.MiddlewareRecorder;
 import io.middleware.android.sdk.core.replay.ReplayRecording;
-import io.middleware.android.sdk.core.replay.v2.ActivityCallbacks;
+import io.middleware.android.sdk.core.replay.v2.LifecycleManager;
 import io.middleware.android.sdk.core.replay.v2.MiddlewareScreenshotManager;
 import io.middleware.android.sdk.extractors.RumResponseAttributesExtractor;
 import io.middleware.android.sdk.interfaces.IMiddleware;
@@ -94,14 +95,17 @@ public class Middleware implements IMiddleware {
     // for testing purposes
     public static Middleware initialize(
             MiddlewareBuilder builder,
-            Application application,
+            Context context,
             Function<Application, CurrentNetworkProvider> currentNetworkProviderFactory) {
         if (INSTANCE != null) {
             Log.w(LOG_TAG, "Singleton Middleware instance has already been initialized.");
             return INSTANCE;
         }
-
-        rumInitializer = new RumInitializer(builder, application, startupTimer);
+        final LifecycleManager lifecycleManager = new LifecycleManager(context.getApplicationContext(),
+                (context instanceof Activity)
+                        ? (Activity) context
+                        : null);
+        rumInitializer = new RumInitializer(builder, context, startupTimer);
         INSTANCE = rumInitializer.initialize(currentNetworkProviderFactory, Looper.getMainLooper());
         LOGGER = INSTANCE.getOpenTelemetry().getLogsBridge()
                 .loggerBuilder(builder.serviceName)
@@ -109,13 +113,8 @@ public class Middleware implements IMiddleware {
         if (builder.isRecordingEnabled()) {
             Log.d(LOG_TAG, "Session recording enabled, waiting layout to get attached.");
             middlewareScreenshotManager = new MiddlewareScreenshotManager(
-                    System.currentTimeMillis(),
-                    builder.target,
-                    builder.rumAccessToken
+                    builder, lifecycleManager
             );
-            application.registerActivityLifecycleCallbacks(
-                    new ActivityCallbacks(middlewareScreenshotManager))
-            ;
         }
         Log.i(LOG_TAG, "Middleware RUM monitoring initialized with session ID: " + INSTANCE.getRumSessionId());
         return INSTANCE;
@@ -151,21 +150,10 @@ public class Middleware implements IMiddleware {
         return new MiddlewareRecorder(this);
     }
 
-    public void startNativeRecording(Activity activity) {
+    public void startNativeRecording() {
         if (middlewareScreenshotManager != null) {
-            middlewareScreenshotManager.setActivity(activity);
+            middlewareScreenshotManager.start(System.currentTimeMillis());
         }
-    }
-
-    /**
-     * @return {@code true} if the recording started successfully.
-     */
-    public boolean startRecording() {
-        if (middlewareScreenshotManager != null) {
-            middlewareScreenshotManager.start();
-            return true;
-        }
-        return false;
     }
 
     /**
