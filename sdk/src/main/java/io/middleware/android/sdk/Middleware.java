@@ -103,7 +103,7 @@ public class Middleware implements IMiddleware {
             Log.w(LOG_TAG, "Singleton Middleware instance has already been initialized.");
             return INSTANCE;
         }
-        final LifecycleManager lifecycleManager = new LifecycleManager(context.getApplicationContext(),
+        lifecycleManager = new LifecycleManager(context.getApplicationContext(),
                 (context instanceof Activity)
                         ? (Activity) context
                         : null);
