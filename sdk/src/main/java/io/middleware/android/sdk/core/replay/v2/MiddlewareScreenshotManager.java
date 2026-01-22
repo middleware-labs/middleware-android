@@ -18,9 +18,6 @@ import android.view.PixelCopy;
 import android.view.View;
 import android.view.ViewGroup;
 
-import androidx.compose.ui.platform.AbstractComposeView;
-import androidx.compose.ui.platform.ComposeView;
-
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
@@ -260,17 +257,6 @@ public class MiddlewareScreenshotManager {
         Canvas canvas = new Canvas(bitmap);
         view.draw(canvas);
 
-        // Handle Jetpack Compose views
-        if (view instanceof ViewGroup) {
-            ViewGroup viewGroup = (ViewGroup) view;
-            for (int i = 0; i < viewGroup.getChildCount(); i++) {
-                View child = viewGroup.getChildAt(i);
-                if (child instanceof AbstractComposeView) {
-                    child.draw(canvas);
-                }
-            }
-        }
-
         // Draw masks over sanitized elements
         synchronized (sanitizedElements) {
             sanitizedElements.removeIf(ref -> ref.get() == null);
@@ -319,8 +305,6 @@ public class MiddlewareScreenshotManager {
                     canvas.translate(x, y);
                     canvas.drawRect(0f, 0f, child.getWidth(), child.getHeight(), getMaskPaint());
                     canvas.restore();
-                } else if (child instanceof ComposeView) {
-                    iterateViewGroupForCompose(rootView, canvas, child);
                 } else if (child instanceof ViewGroup) {
                     iterateViewGroupForCompose(rootView, canvas, child);
                 }
