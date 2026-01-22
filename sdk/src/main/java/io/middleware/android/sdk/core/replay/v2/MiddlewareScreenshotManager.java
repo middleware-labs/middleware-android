@@ -34,6 +34,7 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -568,11 +569,15 @@ public class MiddlewareScreenshotManager {
 
     public void removeSanitizedElement(View element) {
         if (element == null) return;
-        for (int i = sanitizedElements.size() - 1; i >= 0; i--) {
-            WeakReference<View> ref = sanitizedElements.get(i);
-            View v = ref.get();
-            if (v == null || v == element) {
-                sanitizedElements.remove(i);
+        synchronized (sanitizedElements) {
+            // Use Iterator to safely remove elements while iterating
+            Iterator<WeakReference<View>> iterator = sanitizedElements.iterator();
+            while (iterator.hasNext()) {
+                WeakReference<View> ref = iterator.next();
+                View v = ref.get();
+                if (v == null || v == element) {
+                    iterator.remove();
+                }
             }
         }
     }
