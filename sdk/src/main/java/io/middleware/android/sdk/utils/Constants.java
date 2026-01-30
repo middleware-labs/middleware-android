@@ -1,6 +1,7 @@
 package io.middleware.android.sdk.utils;
 
 import static io.opentelemetry.api.common.AttributeKey.doubleKey;
+import static io.opentelemetry.api.common.AttributeKey.longKey;
 import static io.opentelemetry.api.common.AttributeKey.stringKey;
 
 import java.time.Duration;
@@ -40,6 +41,7 @@ public final class Constants {
      * @see io.middleware.android.sdk.builders.MiddlewareBuilder#setGlobalAttributes(Attributes)
      */
     public static final AttributeKey<String> APP_VERSION = stringKey("app.version");
+    public static final AttributeKey<Long> SESSION_START_TIME = longKey("session.start_time");
 
     public static final String BASE_ORIGIN = "sdk.middleware.io";
 
