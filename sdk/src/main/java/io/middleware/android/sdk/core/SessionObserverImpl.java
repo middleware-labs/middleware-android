@@ -1,6 +1,7 @@
 package io.middleware.android.sdk.core;
 
 import static io.middleware.android.sdk.utils.Constants.LOG_TAG;
+import static io.middleware.android.sdk.utils.Constants.SESSION_START_TIME;
 
 import android.util.Log;
 
@@ -23,7 +24,9 @@ public class SessionObserverImpl implements io.opentelemetry.android.session.Ses
     @Override
     public void onSessionStarted(@NonNull Session session, @NonNull Session session1) {
         if (middleware != null) {
-            Log.d(LOG_TAG, "Session recording started for sessionId: " + session.getId());
+            final Long startSessionTime = session.getStartTimestamp() / 1_000_000L;
+            Log.d(LOG_TAG, "Session recording started for sessionId: " + session.getId() + " on: " + startSessionTime);
+            middleware.setGlobalAttribute(SESSION_START_TIME, startSessionTime);
         }
     }
 }
