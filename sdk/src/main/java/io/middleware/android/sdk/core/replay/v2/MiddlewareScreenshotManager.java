@@ -33,410 +33,463 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import io.middleware.android.sdk.Middleware;
 import io.middleware.android.sdk.builders.MiddlewareBuilder;
 
-interface ScreenshotCallback {
-    void onScreenshot(Bitmap bitmap);
-}
-
 public class MiddlewareScreenshotManager {
+
+    // -------------------------------------------------------------------------
+    // Configuration
+    // -------------------------------------------------------------------------
+    /** Maximum number of screenshots kept in the screenshots/ folder before archiving. */
+    private static final int ARCHIVE_CHUNK_SIZE = 10;
+
+    /** How long (ms) we wait for PixelCopy / draw to complete before giving up. */
+    private static final long SCREENSHOT_TIMEOUT_MS = 3_000;
+
+    /** Minimum short-edge resolution for the compressed output. */
+    private static final int MIN_RESOLUTION_PX = 320;
+
+    /**
+     * Guard against concurrent screenshot attempts piling up.
+     * If a capture is still in flight we skip the next tick rather than queuing.
+     */
+    private final AtomicBoolean captureInFlight = new AtomicBoolean(false);
+
+    // -------------------------------------------------------------------------
+    // Fields
+    // -------------------------------------------------------------------------
     private String firstTs = "";
     private String lastTs = "";
+
     private final MiddlewareBuilder builder;
     private final LifecycleManager lifecycleManager;
-    private final List<WeakReference<View>> sanitizedElements = new ArrayList<>();
-    private Handler mainHandler;
+
+    /**
+     * CopyOnWriteArrayList lets us iterate without locking from the main thread
+     * while background threads add/remove elements.
+     */
+    private final CopyOnWriteArrayList<WeakReference<View>> sanitizedElements =
+            new CopyOnWriteArrayList<>();
+
+    /** Dedicated single-thread executor for all file / network I/O. */
+    private ExecutorService ioExecutor;
+
+    /** Scheduler for the two periodic tasks (capture + send). */
+    private ScheduledExecutorService scheduler;
+
+    /**
+     * Main-thread handler – created once and reused.
+     * PixelCopy callback is delivered here; we then hand off to ioExecutor.
+     */
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
+
     private WeakReference<Context> uiContext;
-    private ScheduledExecutorService scheduledExecutor;
-    private ExecutorService executorService;
-    private Paint maskPaint;
     private int lastOrientation = -1;
 
+    /**
+     * Pre-built mask paint – created on the IO thread during start() so it is
+     * never constructed on the UI thread during a hot screenshot path.
+     */
+    private volatile Paint maskPaint;
+
+    /** Shared, long-lived OkHttp client (expensive to construct per-call). */
+    private volatile NetworkManager networkManager;
+
+    // -------------------------------------------------------------------------
+    // Constructor
+    // -------------------------------------------------------------------------
     public MiddlewareScreenshotManager(MiddlewareBuilder builder, LifecycleManager lifecycleManager) {
         this.builder = builder;
         this.lifecycleManager = lifecycleManager;
     }
 
+    // -------------------------------------------------------------------------
+    // Lifecycle
+    // -------------------------------------------------------------------------
     public void start(Long startTs) {
         firstTs = startTs.toString();
         uiContext = new WeakReference<>(lifecycleManager.getContext());
         lastOrientation = -1;
-        scheduledExecutor = Executors.newScheduledThreadPool(2);
-        executorService = Executors.newCachedThreadPool();
+
+        // Single-thread IO executor keeps file writes sequential (no corruption).
+        ioExecutor = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "mw-screenshot-io");
+            t.setPriority(Thread.MIN_PRIORITY); // don't compete with UI
+            return t;
+        });
+
+        // Two threads: one for scheduled captures, one for scheduled sends.
+        scheduler = Executors.newScheduledThreadPool(2);
+
+        // Pre-warm the mask paint and the network client off the UI thread.
+        ioExecutor.execute(() -> {
+            getMaskPaint();
+            networkManager = new NetworkManager(builder.target, builder.rumAccessToken);
+        });
+
         checkAndReportOrientationChange();
+
         long intervalMillis = builder.recordingOptions.getScreenshotInterval();
-        scheduledExecutor.scheduleWithFixedDelay(() -> {
-            executorService.execute(() -> makeScreenshotAndSaveWithArchive(10));
+
+        // Capture task --------------------------------------------------------
+        scheduler.scheduleWithFixedDelay(() -> {
+            if (captureInFlight.compareAndSet(false, true)) {
+                takeScreenshotAsync();
+                // captureInFlight is reset inside takeScreenshotAsync callbacks.
+            } else {
+                Log.d(LOG_TAG, "Screenshot skipped – previous capture still in flight");
+            }
         }, 0, intervalMillis, TimeUnit.MILLISECONDS);
 
-        scheduledExecutor.scheduleWithFixedDelay(() -> {
-            executorService.execute(this::sendScreenshots);
-        }, intervalMillis, intervalMillis, TimeUnit.MILLISECONDS);
+        // Send task -----------------------------------------------------------
+        scheduler.scheduleWithFixedDelay(
+                () -> ioExecutor.execute(this::sendScreenshots),
+                intervalMillis, intervalMillis, TimeUnit.MILLISECONDS);
     }
 
-    private void makeScreenshotAndSaveWithArchive(int chunk) {
+    public void stop() {
+        // Stop scheduling new work first.
+        if (scheduler != null) {
+            scheduler.shutdownNow();
+            scheduler = null;
+        }
+
+        // Drain remaining work (archive + send) then shut down.
+        if (ioExecutor != null && !ioExecutor.isShutdown()) {
+            ioExecutor.execute(this::terminateFlush);
+            ioExecutor.shutdown();
+            ioExecutor = null;
+        }
+
+        sanitizedElements.clear();
+        lastOrientation = -1;
+    }
+
+    /** Called by ioExecutor during stop() – archives any pending screenshots then sends. */
+    private void terminateFlush() {
         try {
-            checkAndReportOrientationChange();
-            Bitmap screenShotBitmap = captureScreenshot();
-            File screenShotFolder = getScreenshotFolder();
-            File screenShotFile = new File(screenShotFolder, System.currentTimeMillis() + ".jpeg");
-            try (FileOutputStream out = new FileOutputStream(screenShotFile)) {
-                if (screenShotBitmap != null) {
-                    out.write(compress(screenShotBitmap));
-                }
-            }
-            File[] files = screenShotFolder.listFiles();
-            if (files != null && files.length >= chunk) {
-                archivateFolder(screenShotFolder);
-            }
-
-        } catch (IllegalStateException e) {
-            Log.e(LOG_TAG, "Screenshot skipped: " + e.getMessage());
+            File folder = getScreenshotFolder();
+            archivateFolder(folder);
+            sendScreenshots();
         } catch (Exception e) {
-            Log.e(LOG_TAG, "Error making screenshot: " + e.getMessage());
+            Log.e(LOG_TAG, "Error during termination: " + e.getMessage());
         }
     }
 
-    private File getScreenshotFolder() {
-        Context context = uiContext.get();
-        if (context == null) throw new IllegalStateException("No context");
-        File folder = new File(context.getFilesDir(), "screenshots");
-        folder.mkdirs();
-        return folder;
-    }
+    // -------------------------------------------------------------------------
+    // Screenshot capture – fully off the UI thread except the minimal PixelCopy
+    // -------------------------------------------------------------------------
 
-    private Bitmap captureScreenshot() throws Exception {
-        Activity activity = lifecycleManager.getCurrentActivity();
-        if (activity == null) {
-            throw new IllegalStateException("No Activity available for screenshot");
-        }
-
-        if (activity.isFinishing() || activity.isDestroyed()) {
-            throw new IllegalStateException("Activity is finishing or destroyed while taking screenshot");
-        }
-
-        final Bitmap[] result = new Bitmap[1];
-        final Exception[] exception = new Exception[1];
-        final Object lock = new Object();
-        new Handler(Looper.getMainLooper()).post(() -> {
+    /**
+     * Initiates an async screenshot.
+     * <p>
+     * Strategy:
+     * <ol>
+     *   <li>Post a tiny Runnable to the main thread to *start* PixelCopy (required by the API).
+     *   <li>PixelCopy delivers its result to {@link #mainHandler} – we immediately hand the
+     *       raw bitmap to {@link #ioExecutor} for masking, scaling, compression and saving.
+     *   <li>If PixelCopy is unavailable (pre-O) we fall back to View.draw() on the main thread,
+     *       but that is a rare path.
+     * </ol>
+     * The UI thread is therefore only blocked for the PixelCopy *setup* call (~microseconds),
+     * NOT for compression, file I/O or network work.
+     */
+    private void takeScreenshotAsync() {
+        mainHandler.post(() -> {
             try {
-                screenShot(activity, bitmap -> {
-                    synchronized (lock) {
-                        result[0] = bitmap;
-                        lock.notify();
-                    }
-                });
-            } catch (Exception e) {
-                synchronized (lock) {
-                    lock.notify();
+                Activity activity = lifecycleManager.getCurrentActivity();
+                if (activity == null || activity.isFinishing() || activity.isDestroyed()) {
+                    captureInFlight.set(false);
+                    return;
                 }
+
+                View decorView = activity.getWindow().getDecorView().getRootView();
+                if (decorView == null || decorView.getWidth() <= 0 || decorView.getHeight() <= 0) {
+                    captureInFlight.set(false);
+                    return;
+                }
+
+                checkAndReportOrientationChange();
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    // PixelCopy: GPU-accurate, works with Maps / SurfaceView / TextureView
+                    Bitmap bitmap = Bitmap.createBitmap(
+                            decorView.getWidth(), decorView.getHeight(), Bitmap.Config.ARGB_8888);
+
+                    PixelCopy.request(activity.getWindow(), bitmap, copyResult -> {
+                        // This callback runs on mainHandler – do the MINIMUM here.
+                        if (activity.isFinishing() || activity.isDestroyed()) {
+                            bitmap.recycle();
+                            captureInFlight.set(false);
+                            return;
+                        }
+                        if (copyResult == PixelCopy.SUCCESS) {
+                            // Hand off bitmap to IO thread immediately.
+                            // Capture a snapshot of sanitized element bounds while on main thread
+                            // (getLocationOnScreen must run on UI thread).
+                            List<int[]> maskRects = collectMaskRects(decorView);
+                            if (ioExecutor != null && !ioExecutor.isShutdown()) {
+                                ioExecutor.execute(() ->
+                                        processBitmapAsync(bitmap, maskRects));
+                            } else {
+                                bitmap.recycle();
+                                captureInFlight.set(false);
+                            }
+                        } else {
+                            Log.e(LOG_TAG, "PixelCopy failed (" + copyResult + "), using fallback");
+                            bitmap.recycle();
+                            // Fallback: still on main thread – draw the view hierarchy.
+                            Bitmap fallback = drawViewToBitmap(decorView);
+                            if (fallback != null && ioExecutor != null && !ioExecutor.isShutdown()) {
+                                ioExecutor.execute(() -> processBitmapAsync(fallback, null));
+                            } else {
+                                if (fallback != null) fallback.recycle();
+                                captureInFlight.set(false);
+                            }
+                        }
+                    }, mainHandler);
+
+                } else {
+                    // Pre-O fallback: View.draw() on the main thread (unavoidable).
+                    Bitmap fallback = drawViewToBitmap(decorView);
+                    if (fallback != null && ioExecutor != null && !ioExecutor.isShutdown()) {
+                        ioExecutor.execute(() -> processBitmapAsync(fallback, null));
+                    } else {
+                        if (fallback != null) fallback.recycle();
+                        captureInFlight.set(false);
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(LOG_TAG, "Error initiating screenshot: " + e.getMessage());
+                captureInFlight.set(false);
             }
         });
-        synchronized (lock) {
-            lock.wait(5000); // 5 second timeout
-        }
-        if (exception[0] != null) throw exception[0];
-        if (result[0] == null) throw new Exception("Screenshot timeout");
-        return result[0];
     }
 
+    /**
+     * Called on the UI thread to snapshot the screen coordinates of all sanitized views.
+     * Returns a list of [x, y, width, height] int arrays – safe to pass to the IO thread.
+     */
+    private List<int[]> collectMaskRects(View rootView) {
+        List<int[]> rects = new ArrayList<>();
+
+        // Collect registered sanitized views
+        int[] rootLoc = new int[2];
+        rootView.getLocationOnScreen(rootLoc);
+
+        for (WeakReference<View> ref : sanitizedElements) {
+            View v = ref.get();
+            if (v != null && v.getVisibility() == View.VISIBLE && v.isAttachedToWindow()) {
+                int[] loc = new int[2];
+                v.getLocationOnScreen(loc);
+                rects.add(new int[]{loc[0], loc[1], v.getWidth(), v.getHeight()});
+            }
+        }
+
+        // Collect SanitizableViewGroups from the view hierarchy
+        collectSanitizableGroups(rootView, rootLoc, rects);
+
+        return rects;
+    }
+
+    private void collectSanitizableGroups(View view, int[] rootLoc, List<int[]> out) {
+        if (!(view instanceof ViewGroup)) return;
+        ViewGroup group = (ViewGroup) view;
+        for (int i = 0; i < group.getChildCount(); i++) {
+            View child = group.getChildAt(i);
+            if (child instanceof SanitizableViewGroup) {
+                int[] loc = new int[2];
+                child.getLocationOnScreen(loc);
+                out.add(new int[]{loc[0], loc[1], child.getWidth(), child.getHeight()});
+            } else {
+                collectSanitizableGroups(child, rootLoc, out);
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // IO-thread: mask → scale → compress → save
+    // -------------------------------------------------------------------------
+
+    /**
+     * Everything from here down runs entirely on {@link #ioExecutor} – zero UI-thread impact.
+     */
+    private void processBitmapAsync(Bitmap bitmap, List<int[]> maskRects) {
+        try {
+            // 1. Apply masks (mutable copy only if needed)
+            Bitmap masked = applyMasks(bitmap, maskRects);
+
+            // 2. Scale + compress
+            byte[] compressed = compress(masked); // recycles masked internally
+
+            // 3. Save to disk
+            saveScreenshot(compressed);
+
+            // 4. Archive if enough files have accumulated
+            File folder = getScreenshotFolder();
+            File[] files = folder.listFiles();
+            if (files != null && files.length >= ARCHIVE_CHUNK_SIZE) {
+                archivateFolder(folder);
+            }
+        } catch (Exception e) {
+            Log.e(LOG_TAG, "Error processing screenshot: " + e.getMessage());
+        } finally {
+            captureInFlight.set(false);
+        }
+    }
+
+    /**
+     * Applies mask rectangles to the bitmap.
+     * If there are no masks the original bitmap is returned unchanged (no copy).
+     */
+    private Bitmap applyMasks(Bitmap bitmap, List<int[]> maskRects) {
+        if (maskRects == null || maskRects.isEmpty()) return bitmap;
+
+        Bitmap mutable = bitmap.copy(Bitmap.Config.ARGB_8888, true);
+        bitmap.recycle();
+
+        Canvas canvas = new Canvas(mutable);
+        Paint paint = getMaskPaint();
+        for (int[] r : maskRects) {
+            canvas.save();
+            canvas.translate(r[0], r[1]);
+            canvas.drawRect(0f, 0f, r[2], r[3], paint);
+            canvas.restore();
+        }
+        return mutable;
+    }
+
+    private void saveScreenshot(byte[] data) {
+        try {
+            File folder = getScreenshotFolder();
+            File file = new File(folder, System.currentTimeMillis() + ".jpeg");
+            try (FileOutputStream out = new FileOutputStream(file)) {
+                out.write(data);
+            }
+        } catch (Exception e) {
+            Log.e(LOG_TAG, "Error saving screenshot: " + e.getMessage());
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Compression (runs on IO thread)
+    // -------------------------------------------------------------------------
     private byte[] compress(Bitmap originalBitmap) throws Exception {
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
             if (originalBitmap.getWidth() <= 0 || originalBitmap.getHeight() <= 0) {
-                throw new IllegalArgumentException("Invalid bitmap dimensions: " +
-                        originalBitmap.getWidth() + "x" + originalBitmap.getHeight());
+                throw new IllegalArgumentException("Invalid bitmap dimensions: "
+                        + originalBitmap.getWidth() + "x" + originalBitmap.getHeight());
             }
 
-            int originalWidth = originalBitmap.getWidth();
-            int originalHeight = originalBitmap.getHeight();
-            float aspectRatio = (float) originalWidth / originalHeight;
+            int origW = originalBitmap.getWidth();
+            int origH = originalBitmap.getHeight();
+            float aspect = (float) origW / origH;
 
-            int newWidth, newHeight;
-
-            int minResolution = 320;
-            if (originalWidth < originalHeight) {
-                newWidth = Math.max(minResolution, 1);
-                newHeight = Math.max((int) (newWidth / aspectRatio), 1);
-            } else {
-                newHeight = Math.max(minResolution, 1);
-                newWidth = Math.max((int) (newHeight * aspectRatio), 1);
+            int newW, newH;
+            if (origW < origH) { // portrait
+                newW = Math.max(MIN_RESOLUTION_PX, 1);
+                newH = Math.max((int) (newW / aspect), 1);
+            } else { // landscape / square
+                newH = Math.max(MIN_RESOLUTION_PX, 1);
+                newW = Math.max((int) (newH * aspect), 1);
             }
 
-            String orientation = originalWidth < originalHeight ? "Portrait" : "Landscape";
-            Log.d(LOG_TAG, "Screenshot scaling: " + orientation + " " + originalWidth + "x" +
-                    originalHeight + " -> " + newWidth + "x" + newHeight);
-
-            Bitmap updated;
-            if (originalBitmap.getWidth() == newWidth && originalBitmap.getHeight() == newHeight) {
-                updated = originalBitmap;
-            } else {
-                updated = Bitmap.createScaledBitmap(originalBitmap, newWidth, newHeight, true);
-            }
+            Bitmap scaled = (origW == newW && origH == newH)
+                    ? originalBitmap
+                    : Bitmap.createScaledBitmap(originalBitmap, newW, newH, true);
 
             try {
+                int quality = builder.recordingOptions.getQualityValue();
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    updated.compress(Bitmap.CompressFormat.WEBP_LOSSLESS, builder.recordingOptions.getQualityValue(), outputStream);
+                    scaled.compress(Bitmap.CompressFormat.WEBP_LOSSLESS, quality, outputStream);
                 } else {
-                    updated.compress(Bitmap.CompressFormat.JPEG, builder.recordingOptions.getQualityValue(), outputStream);
+                    scaled.compress(Bitmap.CompressFormat.JPEG, quality, outputStream);
                 }
                 return outputStream.toByteArray();
             } finally {
-                if (updated != originalBitmap) {
-                    updated.recycle();
-                }
+                if (scaled != originalBitmap) scaled.recycle();
             }
         } finally {
             originalBitmap.recycle();
         }
     }
 
-    private void screenShot(Activity activity, ScreenshotCallback screenshotCallback) {
-        if (activity.isFinishing() || activity.isDestroyed()) return;
-        View view = activity.getWindow().getDecorView().getRootView();
-        if (view == null || view.getWidth() <= 0 || view.getHeight() <= 0) {
-            return;
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            int width = view.getWidth();
-            int height = view.getHeight();
+    // -------------------------------------------------------------------------
+    // Fallback: View.draw() – used pre-API 26 or when PixelCopy fails
+    // (runs on UI thread; kept as lean as possible)
+    // -------------------------------------------------------------------------
+    private Bitmap drawViewToBitmap(View view) {
+        try {
             Bitmap bitmap = Bitmap.createBitmap(
-                    width,
-                    height,
-                    Bitmap.Config.ARGB_8888
-            );
-            if (mainHandler == null) {
-                mainHandler = new Handler(Looper.getMainLooper());
-            }
-            try {
-                PixelCopy.request(activity.getWindow(), bitmap, copyResult -> {
-                    if (activity.isFinishing() || activity.isDestroyed()) {
-                        bitmap.recycle();
-                        return;
-                    }
-
-                    if (copyResult == PixelCopy.SUCCESS) {
-                        try {
-                            Bitmap maskedBitmap = applyMaskToScreenshot(bitmap, view);
-                            screenshotCallback.onScreenshot(maskedBitmap);
-                        } catch (Exception e) {
-                            Log.e(LOG_TAG, "Failed to apply mask: " + e.getMessage());
-                            screenshotCallback.onScreenshot(bitmap);
-                        }
-                    } else {
-                        Log.e(LOG_TAG, "PixelCopy failed with result: " + copyResult +
-                                ", falling back to oldViewToBitmap");
-                        bitmap.recycle();
-                        try {
-                            screenshotCallback.onScreenshot(oldViewToBitmap(view));
-                        } catch (Exception e) {
-                            Log.e(LOG_TAG, "Fallback screenshot failed: " + e.getMessage());
-                        }
-                    }
-                }, mainHandler);
-            } catch (Exception e) {
-                Log.e(LOG_TAG, "PixelCopy request failed: " + e.getMessage());
-                bitmap.recycle();
-            }
-        } else {
-            try {
-                screenshotCallback.onScreenshot(oldViewToBitmap(view));
-            } catch (Exception e) {
-                Log.e(LOG_TAG, "Screenshot failed: ${e.message}");
-            }
+                    view.getWidth(), view.getHeight(), Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(bitmap);
+            view.draw(canvas);
+            // NOTE: we do NOT apply masks here because getMaskPaint() / canvas drawing
+            // is cheap and the mask rects are not available without collectMaskRects().
+            // Masks will be applied in processBitmapAsync via collectMaskRects() above.
+            return bitmap;
+        } catch (Exception e) {
+            Log.e(LOG_TAG, "drawViewToBitmap failed: " + e.getMessage());
+            return null;
         }
     }
 
-    private Bitmap oldViewToBitmap(View view) {
-        Bitmap bitmap = Bitmap.createBitmap(view.getWidth(), view.getHeight(), Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bitmap);
-        view.draw(canvas);
-
-        // Draw masks over sanitized elements
-        synchronized (sanitizedElements) {
-            sanitizedElements.removeIf(ref -> ref.get() == null);
-
-            for (WeakReference<View> weakRef : sanitizedElements) {
-                View sanitizedView = weakRef.get();
-                if (sanitizedView != null && sanitizedView.getVisibility() == View.VISIBLE &&
-                        sanitizedView.isAttachedToWindow()) {
-
-                    int[] location = new int[2];
-                    sanitizedView.getLocationOnScreen(location);
-                    int[] rootViewLocation = new int[2];
-                    view.getLocationOnScreen(rootViewLocation);
-
-                    int x = location[0] - rootViewLocation[0];
-                    int y = location[1] - rootViewLocation[1];
-
-                    canvas.save();
-                    canvas.translate(x, y);
-                    canvas.drawRect(0f, 0f, sanitizedView.getWidth(), sanitizedView.getHeight(), getMaskPaint());
-                    canvas.restore();
-                }
-            }
-        }
-
-        iterateViewGroupForCompose(view, canvas, view);
-        return bitmap;
-    }
-
-    private void iterateViewGroupForCompose(View rootView, Canvas canvas, View currentView) {
-        if (currentView instanceof ViewGroup) {
-            ViewGroup viewGroup = (ViewGroup) currentView;
-            for (int i = 0; i < viewGroup.getChildCount(); i++) {
-                View child = viewGroup.getChildAt(i);
-
-                if (child instanceof SanitizableViewGroup) {
-                    Log.d(LOG_TAG, "SanitizableViewGroup found");
-                    int[] location = new int[2];
-                    child.getLocationOnScreen(location);
-                    int[] rootViewLocation = new int[2];
-                    rootView.getLocationOnScreen(rootViewLocation);
-                    int x = location[0] - rootViewLocation[0];
-                    int y = location[1] - rootViewLocation[1];
-
-                    canvas.save();
-                    canvas.translate(x, y);
-                    canvas.drawRect(0f, 0f, child.getWidth(), child.getHeight(), getMaskPaint());
-                    canvas.restore();
-                } else if (child instanceof ViewGroup) {
-                    iterateViewGroupForCompose(rootView, canvas, child);
-                }
-            }
-        }
-    }
-
-    private Bitmap applyMaskToScreenshot(Bitmap bitmap, View rootView) {
-        synchronized (sanitizedElements) {
-            sanitizedElements.removeIf(ref -> ref.get() == null);
-
-            if (sanitizedElements.isEmpty()) {
-                return bitmap;
-            }
-            Bitmap mutableBitmap = bitmap.copy(Bitmap.Config.ARGB_8888, true);
-            Canvas canvas = new Canvas(mutableBitmap);
-            int[] rootViewLocation = new int[2];
-            rootView.getLocationOnScreen(rootViewLocation);
-            int maskedCount = 0;
-            for (WeakReference<View> weakRef : sanitizedElements) {
-                View sanitizedView = weakRef.get();
-                if (sanitizedView != null && sanitizedView.getVisibility() == View.VISIBLE &&
-                        sanitizedView.isAttachedToWindow()) {
-                    int[] location = new int[2];
-                    sanitizedView.getLocationOnScreen(location);
-                    int x = location[0];
-                    int y = location[1];
-
-                    canvas.save();
-                    canvas.translate(x, y);
-                    canvas.drawRect(0f, 0f, sanitizedView.getWidth(), sanitizedView.getHeight(), getMaskPaint());
-                    canvas.restore();
-                    maskedCount++;
-                }
-                if (maskedCount > 0) {
-                    Log.d(LOG_TAG, "Applied mask to " + maskedCount + " sanitized element(s)");
-                }
-            }
-            return mutableBitmap;
-        }
-    }
-
+    // -------------------------------------------------------------------------
+    // Mask paint – created lazily on IO thread, never on UI thread
+    // -------------------------------------------------------------------------
     private Paint getMaskPaint() {
         if (maskPaint == null) {
-            maskPaint = new Paint();
-            maskPaint.setStyle(Paint.Style.FILL);
-            Bitmap patternBitmap = createCrossStripedPatternBitmap();
-            maskPaint.setShader(new BitmapShader(patternBitmap, Shader.TileMode.REPEAT, Shader.TileMode.REPEAT));
+            synchronized (this) {
+                if (maskPaint == null) {
+                    Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+                    p.setStyle(Paint.Style.FILL);
+                    p.setShader(new BitmapShader(
+                            createCrossStripedPatternBitmap(),
+                            Shader.TileMode.REPEAT,
+                            Shader.TileMode.REPEAT));
+                    maskPaint = p;
+                }
+            }
         }
         return maskPaint;
     }
 
     private Bitmap createCrossStripedPatternBitmap() {
-        int patternSize = 80;
-        Bitmap patternBitmap = Bitmap.createBitmap(patternSize, patternSize, Bitmap.Config.ARGB_8888);
-        Canvas patternCanvas = new Canvas(patternBitmap);
-        Paint paint = new Paint();
-        paint.setColor(Color.DKGRAY);
-        paint.setStyle(Paint.Style.FILL);
+        int size = 80;
+        Bitmap bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(bmp);
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        p.setColor(Color.DKGRAY);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeWidth(3f);
 
-        patternCanvas.drawColor(Color.WHITE);
+        c.drawColor(Color.WHITE);
 
-        float stripeWidth = 20f;
-        float gap = stripeWidth / 4;
-        for (int i = -patternSize; i < patternSize * 2; i += (int) (stripeWidth + gap)) {
-            patternCanvas.drawLine(i, -gap, i + patternSize, patternSize + gap, paint);
+        float stripeStep = 25f;
+        for (float i = -size; i < size * 2; i += stripeStep) {
+            c.drawLine(i, -1, i + size, size + 1, p);
         }
-
-        patternCanvas.rotate(90f, patternSize / 2f, patternSize / 2f);
-
-        for (int i = -patternSize; i < patternSize * 2; i += (int) (stripeWidth + gap)) {
-            patternCanvas.drawLine(i, -gap, i + patternSize, patternSize + gap, paint);
+        c.rotate(90f, size / 2f, size / 2f);
+        for (float i = -size; i < size * 2; i += stripeStep) {
+            c.drawLine(i, -1, i + size, size + 1, p);
         }
-
-        return patternBitmap;
+        return bmp;
     }
 
-    public void stop() {
-        if (scheduledExecutor != null) {
-            scheduledExecutor.shutdownNow();
-            scheduledExecutor = null;
-        }
-        if (executorService != null) {
-            executorService.shutdownNow();
-            executorService = null;
-        }
-        terminate();
-        synchronized (sanitizedElements) {
-            sanitizedElements.clear();
-        }
-        mainHandler = null;
-        lastOrientation = -1;
-    }
-
-    private void terminate() {
-        executorService.execute(() -> {
-            try {
-                File screenshotFolder = getScreenshotFolder();
-                archivateFolder(screenshotFolder);
-                sendScreenshots();
-            } catch (Exception e) {
-                Log.e(LOG_TAG, "Error during termination: " + e.getMessage());
-            }
-        });
-    }
-
-    private void checkAndReportOrientationChange() {
-        try {
-            Context context = uiContext.get();
-            if (context == null) return;
-            int currentOrientation = context.getResources().getConfiguration().orientation;
-            if (currentOrientation != lastOrientation) {
-                lastOrientation = currentOrientation;
-                String orientationName = currentOrientation == 1 ? "Portrait" :
-                        currentOrientation == 3 ? "Landscape" : "Unknown";
-                Log.d(LOG_TAG, "Current orientation: " + orientationName);
-            }
-        } catch (Exception e) {
-            Log.e(LOG_TAG, "Error checking orientation: " + e.getMessage());
-        }
-    }
-
-    public void setViewForBlur(View myView) {
-        sanitizedElements.add(new WeakReference<>(myView));
-    }
-
+    // -------------------------------------------------------------------------
+    // Archiving (runs on IO thread)
+    // -------------------------------------------------------------------------
     private void archivateFolder(File folder) {
         File[] screenshots = folder.listFiles();
-        if (screenshots == null || screenshots.length == 0) {
-            Log.d(LOG_TAG, "No screenshots to archive");
-            return;
-        }
+        if (screenshots == null || screenshots.length == 0) return;
 
         Arrays.sort(screenshots, Comparator.comparingLong(File::lastModified));
 
@@ -447,102 +500,69 @@ public class MiddlewareScreenshotManager {
 
                 for (File jpeg : screenshots) {
                     lastTs = getNameWithoutExtension(jpeg);
-                    String filename = firstTs + "_1_" + getNameWithoutExtension(jpeg) + ".jpeg";
-                    byte[] readBytes = readFileBytes(jpeg);
-                    TarArchiveEntry tarEntry = new TarArchiveEntry(filename);
-                    tarEntry.setSize(readBytes.length);
-                    tarOs.putArchiveEntry(tarEntry);
-                    ByteArrayInputStream byteStream = new ByteArrayInputStream(readBytes);
-                    byte[] buffer = new byte[4096];
-                    int n;
-                    while ((n = byteStream.read(buffer)) != -1) {
-                        tarOs.write(buffer, 0, n);
-                    }
+                    String filename = firstTs + "_1_" + lastTs + ".jpeg";
+                    byte[] bytes = readFileBytes(jpeg);
+                    TarArchiveEntry entry = new TarArchiveEntry(filename);
+                    entry.setSize(bytes.length);
+                    tarOs.putArchiveEntry(entry);
+                    tarOs.write(bytes);
                     tarOs.closeArchiveEntry();
                 }
             }
 
-            File archiveFolder = getArchiveFolder();
             final String sessionId = Middleware.getInstance().getRumSessionId();
             if (sessionId.isEmpty()) {
-                Log.d("Middleware", "SessionId is empty");
+                Log.d(LOG_TAG, "SessionId is empty – skipping archive write");
                 return;
             }
-            File archiveFile = new File(archiveFolder, sessionId + "-" + lastTs + ".tar.gz");
 
+            File archiveFolder = getArchiveFolder();
+            File archiveFile = new File(archiveFolder, sessionId + "-" + lastTs + ".tar.gz");
             try (FileOutputStream out = new FileOutputStream(archiveFile)) {
                 out.write(combinedData.toByteArray());
             }
 
-            executorService.execute(() -> {
-                for (File screenshot : screenshots) {
-                    deleteSafely(screenshot);
-                }
-            });
+            // Delete originals after successful archive write.
+            for (File f : screenshots) deleteSafely(f);
+
         } catch (IOException e) {
             Log.e(LOG_TAG, "Error archiving folder: " + e.getMessage());
         }
     }
 
-    private byte[] readFileBytes(File file) throws IOException {
-        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-        try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
-            byte[] data = new byte[8192];
-            int nRead;
-            while ((nRead = fis.read(data, 0, data.length)) != -1) {
-                buffer.write(data, 0, nRead);
-            }
-        }
-        return buffer.toByteArray();
-    }
-
-    private String getNameWithoutExtension(File file) {
-        String name = file.getName();
-        int lastDot = name.lastIndexOf('.');
-        return lastDot > 0 ? name.substring(0, lastDot) : name;
-    }
-
-    private File getArchiveFolder() {
-        Context context = uiContext.get();
-        if (context == null) throw new IllegalStateException("No context");
-        File folder = new File(context.getFilesDir(), "archives");
-        folder.mkdirs();
-        return folder;
-    }
-
-    private void deleteSafely(File file) {
-        if (file.exists()) {
-            try {
-                file.delete();
-            } catch (Exception e) {
-                Log.e(LOG_TAG, "Error deleting file: " + e.getMessage());
-            }
-        }
-    }
-
+    // -------------------------------------------------------------------------
+    // Network send (runs on IO thread)
+    // -------------------------------------------------------------------------
     public void sendScreenshots() {
         final String sessionId = Middleware.getInstance().getRumSessionId();
         if (sessionId.isEmpty()) {
-            Log.d("Middleware", "SessionId is empty");
+            Log.d(LOG_TAG, "SessionId is empty – skipping send");
             return;
         }
         try {
             File archiveFolder = getArchiveFolder();
             File[] archives = archiveFolder.listFiles();
             if (archives == null || archives.length == 0) return;
-            NetworkManager networkManager = new NetworkManager(builder.target, builder.rumAccessToken);
+
+            // Reuse the shared NetworkManager (OkHttpClient is expensive to construct).
+            NetworkManager nm = networkManager;
+            if (nm == null) {
+                nm = new NetworkManager(builder.target, builder.rumAccessToken);
+                networkManager = nm;
+            }
+            final NetworkManager finalNm = nm;
+
             for (File archive : archives) {
                 byte[] imageData = readFileBytes(archive);
-                networkManager.sendImages(sessionId, imageData, archive.getName(), new NetworkCallback() {
+                finalNm.sendImages(sessionId, imageData, archive.getName(), new NetworkCallback() {
                     @Override
                     public void onSuccess(String response) {
-                        executorService.execute(() -> {
-                            deleteSafely(archive);
-                        });
+                        deleteSafely(archive);
                     }
 
                     @Override
                     public void onError(Exception e) {
+                        Log.e(LOG_TAG, "Send failed for " + archive.getName() + ": " + e.getMessage());
                     }
                 });
             }
@@ -551,18 +571,77 @@ public class MiddlewareScreenshotManager {
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Public API
+    // -------------------------------------------------------------------------
+    public void setViewForBlur(View view) {
+        sanitizedElements.add(new WeakReference<>(view));
+    }
+
     public void removeSanitizedElement(View element) {
         if (element == null) return;
-        synchronized (sanitizedElements) {
-            // Use Iterator to safely remove elements while iterating
-            Iterator<WeakReference<View>> iterator = sanitizedElements.iterator();
-            while (iterator.hasNext()) {
-                WeakReference<View> ref = iterator.next();
-                View v = ref.get();
-                if (v == null || v == element) {
-                    iterator.remove();
-                }
+        sanitizedElements.removeIf(ref -> {
+            View v = ref.get();
+            return v == null || v == element;
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
+    private void checkAndReportOrientationChange() {
+        try {
+            Context ctx = uiContext.get();
+            if (ctx == null) return;
+            int orientation = ctx.getResources().getConfiguration().orientation;
+            if (orientation != lastOrientation) {
+                lastOrientation = orientation;
+                String name = orientation == 1 ? "Portrait" : orientation == 3 ? "Landscape" : "Unknown";
+                Log.d(LOG_TAG, "Orientation: " + name);
             }
+        } catch (Exception e) {
+            Log.e(LOG_TAG, "Orientation check failed: " + e.getMessage());
+        }
+    }
+
+    private File getScreenshotFolder() {
+        Context ctx = uiContext.get();
+        if (ctx == null) throw new IllegalStateException("No context");
+        File folder = new File(ctx.getFilesDir(), "screenshots");
+        //noinspection ResultOfMethodCallIgnored
+        folder.mkdirs();
+        return folder;
+    }
+
+    private File getArchiveFolder() {
+        Context ctx = uiContext.get();
+        if (ctx == null) throw new IllegalStateException("No context");
+        File folder = new File(ctx.getFilesDir(), "archives");
+        //noinspection ResultOfMethodCallIgnored
+        folder.mkdirs();
+        return folder;
+    }
+
+    private byte[] readFileBytes(File file) throws IOException {
+        ByteArrayOutputStream buf = new ByteArrayOutputStream((int) file.length());
+        try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
+            byte[] tmp = new byte[8192];
+            int n;
+            while ((n = fis.read(tmp)) != -1) buf.write(tmp, 0, n);
+        }
+        return buf.toByteArray();
+    }
+
+    private String getNameWithoutExtension(File file) {
+        String name = file.getName();
+        int dot = name.lastIndexOf('.');
+        return dot > 0 ? name.substring(0, dot) : name;
+    }
+
+    private void deleteSafely(File file) {
+        if (file != null && file.exists()) {
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
         }
     }
 }
