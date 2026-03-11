@@ -5,7 +5,9 @@ import android.os.Looper;
 
 import androidx.annotation.NonNull;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -27,23 +29,35 @@ public class NetworkManager {
     private final String token;
     private final Handler handler = new Handler(Looper.getMainLooper());
 
+    /**
+     * FIX #1: Build OkHttpClient once and reuse it for all calls.
+     * Each OkHttpClient spawns its own thread pool and connection pool —
+     * creating one per call wastes threads, sockets and memory.
+     * OkHttpClient is fully thread-safe and designed to be shared.
+     */
+    private final OkHttpClient httpClient;
+
     public NetworkManager(String baseUrl, String token) {
         this.baseUrl = baseUrl;
         this.token = token;
+        this.httpClient = new OkHttpClient.Builder()
+                .addInterceptor(new GzipRequestInterceptor())
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .writeTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .build();
     }
 
-    private Request createRequest(final String path) {
-        final String url = baseUrl + path;
+    private Request createRequest() {
+        final String url = baseUrl + NetworkManager.IMAGES_URL;
         return new Request.Builder()
                 .url(url)
                 .build();
     }
 
     private void callAPI(Request request, final NetworkCallback callback) {
-        OkHttpClient client = new OkHttpClient.Builder()
-                .addInterceptor(new GzipRequestInterceptor())
-                .build();
-        client.newCall(request).enqueue(new Callback() {
+        // Reuse the single shared client — no allocation per call.
+        httpClient.newCall(request).enqueue(new Callback() {
             @Override
             public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
                 final String responseData = response.body() != null ? response.body().string() : "";
@@ -64,20 +78,27 @@ public class NetworkManager {
         });
     }
 
-    public void sendImages(String sessionId, byte[] images, String name, final NetworkCallback callback) {
-        Request request = createRequest(IMAGES_URL);
+    /**
+     * Streams {@code archive} directly to the server without loading it into memory.
+     * {@link RequestBody#create(File, MediaType)} reads the file in chunks — heap
+     * usage is constant regardless of archive size, eliminating the OOM.
+     */
+    public void sendImages(String sessionId, File archive, String name, final NetworkCallback callback) {
         if (token == null) {
             callback.onError(new IOException("Token is null"));
             return;
         }
 
+        Request request = createRequest();
 
         String boundary = "Boundary-" + java.util.UUID.randomUUID().toString();
+
+        // RequestBody.create(File, MediaType) streams the file — no full byte[] copy in RAM.
         MultipartBody.Builder requestBodyBuilder = new MultipartBody.Builder(boundary)
                 .setType(MultipartBody.FORM)
                 .addFormDataPart("sessionId", sessionId)
                 .addFormDataPart("batch", name,
-                        RequestBody.create(images, MediaType.parse("application/gzip")));
+                        RequestBody.create(archive, MediaType.parse("application/gzip")));
 
         RequestBody requestBody = requestBodyBuilder.build();
         request = request.newBuilder()
@@ -99,6 +120,7 @@ public class NetworkManager {
     }
 
     static class GzipRequestInterceptor implements Interceptor {
+        @NonNull
         @Override
         public Response intercept(Chain chain) throws IOException {
             Request originalRequest = chain.request();
@@ -122,11 +144,11 @@ public class NetworkManager {
 
                 @Override
                 public long contentLength() {
-                    return -1; // We don't know the compressed length in advance!
+                    return -1; // Compressed length is unknown in advance.
                 }
 
                 @Override
-                public void writeTo(BufferedSink sink) throws IOException {
+                public void writeTo(@NonNull BufferedSink sink) throws IOException {
                     BufferedSink gzipSink = Okio.buffer(new GzipSink(sink));
                     body.writeTo(gzipSink);
                     gzipSink.close();
