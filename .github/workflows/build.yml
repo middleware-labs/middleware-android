@@ -20,10 +20,10 @@ jobs:
       - name: Grant Permission to Execute Gradle
         run: chmod +x gradlew
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
       - name: Build with Gradle
-        uses: gradle/actions@v5.0.2
-        with:
-          arguments: build
+        run: ./gradlew build
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3.1.4
