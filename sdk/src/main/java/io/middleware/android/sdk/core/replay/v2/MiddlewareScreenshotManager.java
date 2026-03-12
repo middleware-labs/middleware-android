@@ -4,6 +4,7 @@ import static io.middleware.android.sdk.utils.Constants.LOG_TAG;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapShader;
 import android.graphics.Canvas;
@@ -22,16 +23,15 @@ import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
@@ -48,14 +48,20 @@ public class MiddlewareScreenshotManager {
     // -------------------------------------------------------------------------
     // Configuration
     // -------------------------------------------------------------------------
-    /** Maximum number of screenshots kept in the screenshots/ folder before archiving. */
+    /**
+     * Maximum number of screenshots kept in the screenshots/ folder before archiving.
+     */
     private static final int ARCHIVE_CHUNK_SIZE = 10;
 
-    /** How long (ms) we wait for PixelCopy / draw to complete before giving up. */
-    private static final long SCREENSHOT_TIMEOUT_MS = 3_000;
-
-    /** Minimum short-edge resolution for the compressed output. */
+    /**
+     * Minimum short-edge resolution for the compressed output.
+     */
     private static final int MIN_RESOLUTION_PX = 320;
+
+    /**
+     * Reusable I/O buffer size for streaming file reads/writes.
+     */
+    private static final int IO_BUFFER_SIZE = 8192;
 
     /**
      * Guard against concurrent screenshot attempts piling up.
@@ -79,10 +85,15 @@ public class MiddlewareScreenshotManager {
     private final CopyOnWriteArrayList<WeakReference<View>> sanitizedElements =
             new CopyOnWriteArrayList<>();
 
-    /** Dedicated single-thread executor for all file / network I/O. */
+    /**
+     * Dedicated single-thread executor for all file / network I/O.
+     */
     private ExecutorService ioExecutor;
 
-    /** Scheduler for the two periodic tasks (capture + send). */
+    /**
+     * FIX #6: Single-thread scheduler is sufficient — the send task dispatches
+     * to ioExecutor anyway, so a second scheduler thread was wasted.
+     */
     private ScheduledExecutorService scheduler;
 
     /**
@@ -100,7 +111,15 @@ public class MiddlewareScreenshotManager {
      */
     private volatile Paint maskPaint;
 
-    /** Shared, long-lived OkHttp client (expensive to construct per-call). */
+    /**
+     * The pattern bitmap backing the mask shader.
+     * FIX #7: Kept as a field so it can be recycled on stop() to free native memory.
+     */
+    private volatile Bitmap maskPatternBitmap;
+
+    /**
+     * Shared, long-lived network client (expensive to construct per-call).
+     */
     private volatile NetworkManager networkManager;
 
     // -------------------------------------------------------------------------
@@ -126,8 +145,12 @@ public class MiddlewareScreenshotManager {
             return t;
         });
 
-        // Two threads: one for scheduled captures, one for scheduled sends.
-        scheduler = Executors.newScheduledThreadPool(2);
+        // FIX #6: One thread is enough — capture runs inline, send dispatches to ioExecutor.
+        scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "mw-screenshot-scheduler");
+            t.setPriority(Thread.MIN_PRIORITY);
+            return t;
+        });
 
         // Pre-warm the mask paint and the network client off the UI thread.
         ioExecutor.execute(() -> {
@@ -171,9 +194,20 @@ public class MiddlewareScreenshotManager {
 
         sanitizedElements.clear();
         lastOrientation = -1;
+
+        // FIX #7: Recycle the pattern bitmap to free native memory on stop().
+        // maskPaint holds a BitmapShader referencing this bitmap — clear both.
+        maskPaint = null;
+        Bitmap pattern = maskPatternBitmap;
+        if (pattern != null && !pattern.isRecycled()) {
+            pattern.recycle();
+            maskPatternBitmap = null;
+        }
     }
 
-    /** Called by ioExecutor during stop() – archives any pending screenshots then sends. */
+    /**
+     * Called by ioExecutor during stop() – archives any pending screenshots then sends.
+     */
     private void terminateFlush() {
         try {
             File folder = getScreenshotFolder();
@@ -220,7 +254,7 @@ public class MiddlewareScreenshotManager {
                 checkAndReportOrientationChange();
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    // PixelCopy: GPU-accurate, works with Maps / SurfaceView / TextureView
+                    // PixelCopy: GPU-accurate, works with Maps / SurfaceView / TextureView.
                     Bitmap bitmap = Bitmap.createBitmap(
                             decorView.getWidth(), decorView.getHeight(), Bitmap.Config.ARGB_8888);
 
@@ -232,13 +266,11 @@ public class MiddlewareScreenshotManager {
                             return;
                         }
                         if (copyResult == PixelCopy.SUCCESS) {
-                            // Hand off bitmap to IO thread immediately.
-                            // Capture a snapshot of sanitized element bounds while on main thread
-                            // (getLocationOnScreen must run on UI thread).
+                            // Capture mask rects on main thread (getLocationOnScreen requires it),
+                            // then hand bitmap + rects off to the IO thread immediately.
                             List<int[]> maskRects = collectMaskRects(decorView);
                             if (ioExecutor != null && !ioExecutor.isShutdown()) {
-                                ioExecutor.execute(() ->
-                                        processBitmapAsync(bitmap, maskRects));
+                                ioExecutor.execute(() -> processBitmapAsync(bitmap, maskRects));
                             } else {
                                 bitmap.recycle();
                                 captureInFlight.set(false);
@@ -246,7 +278,6 @@ public class MiddlewareScreenshotManager {
                         } else {
                             Log.e(LOG_TAG, "PixelCopy failed (" + copyResult + "), using fallback");
                             bitmap.recycle();
-                            // Fallback: still on main thread – draw the view hierarchy.
                             Bitmap fallback = drawViewToBitmap(decorView);
                             if (fallback != null && ioExecutor != null && !ioExecutor.isShutdown()) {
                                 ioExecutor.execute(() -> processBitmapAsync(fallback, null));
@@ -277,26 +308,33 @@ public class MiddlewareScreenshotManager {
     /**
      * Called on the UI thread to snapshot the screen coordinates of all sanitized views.
      * Returns a list of [x, y, width, height] int arrays – safe to pass to the IO thread.
+     * FIX #2: Also prunes dead WeakReferences to prevent accumulation over long sessions.
      */
     private List<int[]> collectMaskRects(View rootView) {
         List<int[]> rects = new ArrayList<>();
+        List<WeakReference<View>> deadRefs = new ArrayList<>();
 
-        // Collect registered sanitized views
         int[] rootLoc = new int[2];
         rootView.getLocationOnScreen(rootLoc);
 
         for (WeakReference<View> ref : sanitizedElements) {
             View v = ref.get();
-            if (v != null && v.getVisibility() == View.VISIBLE && v.isAttachedToWindow()) {
+            if (v == null) {
+                // FIX #2: Queue dead references for removal rather than letting them accumulate.
+                deadRefs.add(ref);
+                continue;
+            }
+            if (v.getVisibility() == View.VISIBLE && v.isAttachedToWindow()) {
                 int[] loc = new int[2];
                 v.getLocationOnScreen(loc);
                 rects.add(new int[]{loc[0], loc[1], v.getWidth(), v.getHeight()});
             }
         }
 
-        // Collect SanitizableViewGroups from the view hierarchy
-        collectSanitizableGroups(rootView, rootLoc, rects);
+        // Prune dead refs outside the iteration loop (CopyOnWriteArrayList is safe here).
+        sanitizedElements.removeAll(deadRefs);
 
+        collectSanitizableGroups(rootView, rootLoc, rects);
         return rects;
     }
 
@@ -324,16 +362,16 @@ public class MiddlewareScreenshotManager {
      */
     private void processBitmapAsync(Bitmap bitmap, List<int[]> maskRects) {
         try {
-            // 1. Apply masks (mutable copy only if needed)
+            // 1. Apply masks (mutable copy only if needed).
             Bitmap masked = applyMasks(bitmap, maskRects);
 
-            // 2. Scale + compress
+            // 2. Scale + compress.
             byte[] compressed = compress(masked); // recycles masked internally
 
-            // 3. Save to disk
+            // 3. Save to disk.
             saveScreenshot(compressed);
 
-            // 4. Archive if enough files have accumulated
+            // 4. Archive if enough files have accumulated.
             File folder = getScreenshotFolder();
             File[] files = folder.listFiles();
             if (files != null && files.length >= ARCHIVE_CHUNK_SIZE) {
@@ -409,7 +447,11 @@ public class MiddlewareScreenshotManager {
             try {
                 int quality = builder.recordingOptions.getQualityValue();
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    scaled.compress(Bitmap.CompressFormat.WEBP_LOSSLESS, quality, outputStream);
+                    // FIX #4: Use WEBP_LOSSY instead of WEBP_LOSSLESS.
+                    // Lossless WebP for screen recordings produces unnecessarily large files.
+                    // Lossy at the configured quality setting is indistinguishable for replay
+                    // and matches the JPEG behaviour on older API levels.
+                    scaled.compress(Bitmap.CompressFormat.WEBP_LOSSY, quality, outputStream);
                 } else {
                     scaled.compress(Bitmap.CompressFormat.JPEG, quality, outputStream);
                 }
@@ -432,9 +474,6 @@ public class MiddlewareScreenshotManager {
                     view.getWidth(), view.getHeight(), Bitmap.Config.ARGB_8888);
             Canvas canvas = new Canvas(bitmap);
             view.draw(canvas);
-            // NOTE: we do NOT apply masks here because getMaskPaint() / canvas drawing
-            // is cheap and the mask rects are not available without collectMaskRects().
-            // Masks will be applied in processBitmapAsync via collectMaskRects() above.
             return bitmap;
         } catch (Exception e) {
             Log.e(LOG_TAG, "drawViewToBitmap failed: " + e.getMessage());
@@ -451,8 +490,10 @@ public class MiddlewareScreenshotManager {
                 if (maskPaint == null) {
                     Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
                     p.setStyle(Paint.Style.FILL);
+                    // FIX #7: Store the pattern bitmap as a field so stop() can recycle it.
+                    maskPatternBitmap = createCrossStripedPatternBitmap();
                     p.setShader(new BitmapShader(
-                            createCrossStripedPatternBitmap(),
+                            maskPatternBitmap,
                             Shader.TileMode.REPEAT,
                             Shader.TileMode.REPEAT));
                     maskPaint = p;
@@ -486,6 +527,8 @@ public class MiddlewareScreenshotManager {
 
     // -------------------------------------------------------------------------
     // Archiving (runs on IO thread)
+    // Streams directly to FileOutputStream – never buffers the full archive in RAM.
+    // FIX #3: lastTs is now set once from the final sorted element, not inside the loop.
     // -------------------------------------------------------------------------
     private void archivateFolder(File folder) {
         File[] screenshots = folder.listFiles();
@@ -493,45 +536,54 @@ public class MiddlewareScreenshotManager {
 
         Arrays.sort(screenshots, Comparator.comparingLong(File::lastModified));
 
-        try {
-            ByteArrayOutputStream combinedData = new ByteArrayOutputStream();
-            try (GzipCompressorOutputStream gzos = new GzipCompressorOutputStream(combinedData);
-                 TarArchiveOutputStream tarOs = new TarArchiveOutputStream(gzos)) {
+        final String sessionId = Middleware.getInstance().getRumSessionId();
+        if (sessionId.isEmpty()) {
+            Log.d(LOG_TAG, "SessionId is empty – skipping archive write");
+            return;
+        }
 
-                for (File jpeg : screenshots) {
-                    lastTs = getNameWithoutExtension(jpeg);
-                    String filename = firstTs + "_1_" + lastTs + ".jpeg";
-                    byte[] bytes = readFileBytes(jpeg);
-                    TarArchiveEntry entry = new TarArchiveEntry(filename);
-                    entry.setSize(bytes.length);
-                    tarOs.putArchiveEntry(entry);
-                    tarOs.write(bytes);
-                    tarOs.closeArchiveEntry();
+        // FIX #3: Set lastTs once from the last (most recent) sorted file, not inside the loop.
+        lastTs = getNameWithoutExtension(screenshots[screenshots.length - 1]);
+
+        File archiveFolder = getArchiveFolder();
+        File archiveFile = new File(archiveFolder, sessionId + "-" + lastTs + ".tar.gz");
+
+        // Stream directly to disk – never holds the full archive in RAM.
+        try (FileOutputStream fos = new FileOutputStream(archiveFile);
+             GzipCompressorOutputStream gzos = new GzipCompressorOutputStream(fos);
+             TarArchiveOutputStream tarOs = new TarArchiveOutputStream(gzos)) {
+
+            byte[] buf = new byte[IO_BUFFER_SIZE];
+
+            for (File jpeg : screenshots) {
+                String filename = firstTs + "_1_" + getNameWithoutExtension(jpeg) + ".jpeg";
+
+                TarArchiveEntry entry = new TarArchiveEntry(filename);
+                entry.setSize(jpeg.length());
+                tarOs.putArchiveEntry(entry);
+
+                try (FileInputStream fis = new FileInputStream(jpeg)) {
+                    int n;
+                    while ((n = fis.read(buf)) != -1) {
+                        tarOs.write(buf, 0, n);
+                    }
                 }
+                tarOs.closeArchiveEntry();
             }
-
-            final String sessionId = Middleware.getInstance().getRumSessionId();
-            if (sessionId.isEmpty()) {
-                Log.d(LOG_TAG, "SessionId is empty – skipping archive write");
-                return;
-            }
-
-            File archiveFolder = getArchiveFolder();
-            File archiveFile = new File(archiveFolder, sessionId + "-" + lastTs + ".tar.gz");
-            try (FileOutputStream out = new FileOutputStream(archiveFile)) {
-                out.write(combinedData.toByteArray());
-            }
-
-            // Delete originals after successful archive write.
-            for (File f : screenshots) deleteSafely(f);
 
         } catch (IOException e) {
             Log.e(LOG_TAG, "Error archiving folder: " + e.getMessage());
+            deleteSafely(archiveFile); // remove corrupt/incomplete archive
+            return;
         }
+
+        // Delete originals only after successful archive write.
+        for (File f : screenshots) deleteSafely(f);
     }
 
     // -------------------------------------------------------------------------
     // Network send (runs on IO thread)
+    // Passes File directly to NetworkManager — no full byte[] copy in RAM.
     // -------------------------------------------------------------------------
     public void sendScreenshots() {
         final String sessionId = Middleware.getInstance().getRumSessionId();
@@ -544,7 +596,6 @@ public class MiddlewareScreenshotManager {
             File[] archives = archiveFolder.listFiles();
             if (archives == null || archives.length == 0) return;
 
-            // Reuse the shared NetworkManager (OkHttpClient is expensive to construct).
             NetworkManager nm = networkManager;
             if (nm == null) {
                 nm = new NetworkManager(builder.target, builder.rumAccessToken);
@@ -553,8 +604,7 @@ public class MiddlewareScreenshotManager {
             final NetworkManager finalNm = nm;
 
             for (File archive : archives) {
-                byte[] imageData = readFileBytes(archive);
-                finalNm.sendImages(sessionId, imageData, archive.getName(), new NetworkCallback() {
+                finalNm.sendImages(sessionId, archive, archive.getName(), new NetworkCallback() {
                     @Override
                     public void onSuccess(String response) {
                         deleteSafely(archive);
@@ -596,7 +646,16 @@ public class MiddlewareScreenshotManager {
             int orientation = ctx.getResources().getConfiguration().orientation;
             if (orientation != lastOrientation) {
                 lastOrientation = orientation;
-                String name = orientation == 1 ? "Portrait" : orientation == 3 ? "Landscape" : "Unknown";
+                // FIX #5: Use Configuration constants instead of magic numbers.
+                // ORIENTATION_LANDSCAPE = 2, not 3 as the original code assumed.
+                String name;
+                if (orientation == Configuration.ORIENTATION_PORTRAIT) {
+                    name = "Portrait";
+                } else if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                    name = "Landscape";
+                } else {
+                    name = "Unknown";
+                }
                 Log.d(LOG_TAG, "Orientation: " + name);
             }
         } catch (Exception e) {
@@ -620,16 +679,6 @@ public class MiddlewareScreenshotManager {
         //noinspection ResultOfMethodCallIgnored
         folder.mkdirs();
         return folder;
-    }
-
-    private byte[] readFileBytes(File file) throws IOException {
-        ByteArrayOutputStream buf = new ByteArrayOutputStream((int) file.length());
-        try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
-            byte[] tmp = new byte[8192];
-            int n;
-            while ((n = fis.read(tmp)) != -1) buf.write(tmp, 0, n);
-        }
-        return buf.toByteArray();
     }
 
     private String getNameWithoutExtension(File file) {
