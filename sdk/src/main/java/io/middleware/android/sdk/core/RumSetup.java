@@ -1,5 +1,7 @@
 package io.middleware.android.sdk.core;
 
+import static java.util.Objects.requireNonNull;
+import static io.middleware.android.sdk.utils.Constants.APP_NAME_KEY;
 import static io.middleware.android.sdk.utils.Constants.BASE_ORIGIN;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_APPSTART;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_ERROR;
@@ -7,7 +9,11 @@ import static io.middleware.android.sdk.utils.Constants.COMPONENT_KEY;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_UI;
 import static io.middleware.android.sdk.utils.Constants.EVENT_TYPE;
 import static io.opentelemetry.android.RumConstants.APP_START_SPAN_NAME;
+import static io.opentelemetry.api.common.AttributeKey.stringKey;
 import static io.opentelemetry.instrumentation.api.instrumenter.AttributesExtractor.constant;
+import static io.opentelemetry.semconv.ResourceAttributes.BROWSER_MOBILE;
+import static io.opentelemetry.semconv.ResourceAttributes.DEPLOYMENT_ENVIRONMENT;
+import static io.opentelemetry.semconv.ResourceAttributes.SERVICE_NAME;
 
 import android.app.Application;
 import android.os.Looper;
@@ -16,6 +22,7 @@ import java.time.Duration;
 import java.util.Objects;
 import java.util.function.Function;
 
+import io.middleware.android.sdk.builders.MiddlewareBuilder;
 import io.middleware.android.sdk.core.models.ScreenAttributesAppender;
 import io.middleware.android.sdk.exporters.MiddlewareLogsExporter;
 import io.middleware.android.sdk.exporters.MiddlewareMetricsExporter;
@@ -47,36 +54,41 @@ import io.opentelemetry.exporter.otlp.http.trace.OtlpHttpSpanExporter;
 import io.opentelemetry.sdk.logs.export.SimpleLogRecordProcessor;
 import io.opentelemetry.sdk.metrics.export.PeriodicMetricReader;
 import io.opentelemetry.sdk.resources.Resource;
+import io.opentelemetry.sdk.resources.ResourceBuilder;
 import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 
 public class RumSetup implements IRumSetup {
     private final OpenTelemetryRumBuilder openTelemetryRumBuilder;
+    private final MiddlewareBuilder builder;
     private MiddlewareSpanExporter middlewareSpanExporter;
     private MiddlewareLogsExporter middlewareLogsExporter;
     private MiddlewareMetricsExporter middlewareMetricsExporter;
+    private Resource resource;
 
-    public RumSetup(Application application) {
+    public RumSetup(Application application, MiddlewareBuilder builder) {
         openTelemetryRumBuilder = OpenTelemetryRum.builder(application);
+        this.builder = builder;
+        this.resource = createMiddlewareResource();
+        openTelemetryRumBuilder.mergeResource(resource);
     }
 
     @Override
-    public void setMetrics(String baseEndpoint, Resource middlewareResource) {
+    public void setMetrics() {
         this.middlewareMetricsExporter = new MiddlewareMetricsExporter(
                 OtlpHttpMetricExporter
                         .builder()
-                        .setEndpoint(baseEndpoint + "/v1/metrics")
+                        .setEndpoint(builder.target + "/v1/metrics")
                         .setTimeout(Duration.ofMillis(10000))
-                        .addHeader("Authorization", Objects.requireNonNull(middlewareResource
-                                .getAttribute(AttributeKey.stringKey("mw.account_key"))))
+                        .addHeader("Authorization", builder.rumAccessToken)
                         .addHeader("Origin", BASE_ORIGIN)
                         .addHeader("Content-Type", "application/json")
                         .addHeader("Access-Control-Allow-Headers", "*")
                         .build()
         );
         openTelemetryRumBuilder.addMeterProviderCustomizer((sdkMeterProviderBuilder, application1) -> {
-            sdkMeterProviderBuilder.addResource(middlewareResource);
+            sdkMeterProviderBuilder.addResource(resource);
             sdkMeterProviderBuilder.registerMetricReader(
                     PeriodicMetricReader.create(middlewareMetricsExporter));
             return sdkMeterProviderBuilder;
@@ -84,21 +96,20 @@ public class RumSetup implements IRumSetup {
     }
 
     @Override
-    public void setTraces(String target, Resource middlewareResource) {
+    public void setTraces() {
         this.middlewareSpanExporter = new MiddlewareSpanExporter(
                 OtlpHttpSpanExporter
                         .builder()
-                        .setEndpoint(target + "/v1/traces")
+                        .setEndpoint(builder.target + "/v1/traces")
                         .setTimeout(Duration.ofMillis(10000))
-                        .addHeader("Authorization", Objects.requireNonNull(middlewareResource
-                                .getAttribute(AttributeKey.stringKey("mw.account_key"))))
+                        .addHeader("Authorization", builder.rumAccessToken)
                         .addHeader("Origin", BASE_ORIGIN)
                         .addHeader("Content-Type", "application/json")
                         .addHeader("Access-Control-Allow-Headers", "*")
                         .build()
         );
         openTelemetryRumBuilder.addTracerProviderCustomizer((sdkTracerProviderBuilder, application1) -> {
-            sdkTracerProviderBuilder.addResource(middlewareResource);
+            sdkTracerProviderBuilder.addResource(resource);
             sdkTracerProviderBuilder.addSpanProcessor(
                     BatchSpanProcessor
                             .builder(middlewareSpanExporter)
@@ -124,20 +135,19 @@ public class RumSetup implements IRumSetup {
     }
 
     @Override
-    public void setLogs(String target, Resource middlewareResource) {
+    public void setLogs() {
         this.middlewareLogsExporter = new MiddlewareLogsExporter(
                 OtlpHttpLogRecordExporter
                         .builder()
-                        .setEndpoint(target + "/v1/logs")
-                        .addHeader("Authorization", Objects.requireNonNull(middlewareResource
-                                .getAttribute(AttributeKey.stringKey("mw.account_key"))))
+                        .setEndpoint(builder.target + "/v1/logs")
+                        .addHeader("Authorization", builder.rumAccessToken)
                         .addHeader("Origin", BASE_ORIGIN)
                         .addHeader("Content-Type", "application/json")
                         .addHeader("Access-Control-Allow-Headers", "*")
                         .build()
         );
         openTelemetryRumBuilder.addLoggerProviderCustomizer((sdkLoggerProviderBuilder, application1) -> {
-            sdkLoggerProviderBuilder.setResource(middlewareResource);
+            sdkLoggerProviderBuilder.setResource(resource);
             sdkLoggerProviderBuilder.addLogRecordProcessor(SimpleLogRecordProcessor
                     .create(middlewareLogsExporter)
             );
@@ -267,8 +277,14 @@ public class RumSetup implements IRumSetup {
     }
 
     @Override
-    public void mergeResource(Resource middlewareResource) {
-        openTelemetryRumBuilder.mergeResource(middlewareResource);
+    public void setResource(Resource resource) {
+        this.resource = resource;
+    }
+
+
+    @Override
+    public Resource getResource() {
+        return resource;
     }
 
     @Override
@@ -285,5 +301,30 @@ public class RumSetup implements IRumSetup {
     @Override
     public OpenTelemetryRum build() {
         return openTelemetryRumBuilder.build();
+    }
+
+    private Resource createMiddlewareResource() {
+        if (!builder.resourceAttributes.isEmpty()) {
+            return Resource.create(builder.resourceAttributes);
+        }
+        // applicationName can't be null at this stage
+        String applicationName = requireNonNull(builder.projectName);
+        ResourceBuilder resourceBuilder = Resource.getDefault().toBuilder().put(APP_NAME_KEY, applicationName);
+        if (builder.deploymentEnvironment != null) {
+            resourceBuilder.put(DEPLOYMENT_ENVIRONMENT.getKey(), builder.deploymentEnvironment);
+        }
+        if (builder.globalAttributes != null) {
+            builder.globalAttributes.forEach((attributeKey, o) -> {
+                resourceBuilder.put(attributeKey.getKey(), String.valueOf(builder.globalAttributes.get(attributeKey)));
+            });
+        }
+        resourceBuilder.put(SERVICE_NAME.getKey(), builder.serviceName);
+        resourceBuilder.put("project.name", builder.projectName);
+        resourceBuilder.put("mw.rum", true);
+        resourceBuilder.removeIf(attributeKey -> attributeKey.equals(stringKey("os.name")));
+        resourceBuilder.put("os", "Android");
+        resourceBuilder.put("recording", builder.isRecordingEnabled() ? "1" : "0");
+        resourceBuilder.put(BROWSER_MOBILE.getKey(), "true");
+        return resourceBuilder.build();
     }
 }

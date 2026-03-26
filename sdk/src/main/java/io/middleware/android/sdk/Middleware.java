@@ -55,6 +55,7 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.instrumentation.okhttp.v3_0.OkHttpTelemetry;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
+import io.opentelemetry.sdk.resources.ResourceBuilder;
 import okhttp3.Call;
 import okhttp3.OkHttpClient;
 
@@ -219,13 +220,19 @@ public class Middleware implements IMiddleware {
 
 
     /**
-     * Set Native Session Id.
+     * Set Native Session Id & session start time
      * Note: If this is set throughout the session the same session id will be used.
      *
      * @param nativeSessionId
      */
-    public void setNativeSessionId(final String nativeSessionId) {
+    public void setNativeSession(final String nativeSessionId, final String nativeStartTime) {
         this.nativeSessionId = nativeSessionId;
+        ResourceBuilder builder = middlewareRum.getResource().toBuilder();
+        builder.put("session.id", nativeSessionId);
+        builder.put("session.start_time", nativeStartTime);
+        this.setGlobalAttribute(AttributeKey.stringKey("session.id"), nativeSessionId);
+        this.setGlobalAttribute(AttributeKey.stringKey("session.start_time"), nativeStartTime);
+        middlewareRum.setResource(builder.build());
     }
 
     //NOTE: This method is not used as of now will be used in future purposes.

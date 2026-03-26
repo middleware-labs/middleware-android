@@ -19,6 +19,8 @@ import android.view.PixelCopy;
 import android.view.View;
 import android.view.ViewGroup;
 
+import com.google.gson.Gson;
+
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
@@ -47,13 +49,19 @@ public class MiddlewareScreenshotManager {
     // -------------------------------------------------------------------------
     // Configuration
     // -------------------------------------------------------------------------
-    /** Maximum number of screenshots kept in the screenshots/ folder before archiving. */
+    /**
+     * Maximum number of screenshots kept in the screenshots/ folder before archiving.
+     */
     private static final int ARCHIVE_CHUNK_SIZE = 10;
 
-    /** Minimum short-edge resolution for the compressed output. */
+    /**
+     * Minimum short-edge resolution for the compressed output.
+     */
     private static final int MIN_RESOLUTION_PX = 320;
 
-    /** Reusable I/O buffer size for streaming file reads/writes. */
+    /**
+     * Reusable I/O buffer size for streaming file reads/writes.
+     */
     private static final int IO_BUFFER_SIZE = 8192;
 
     /**
@@ -64,13 +72,13 @@ public class MiddlewareScreenshotManager {
 
     /**
      * Set to true by stop() before any executor shutdown.
-     *
+     * <p>
      * This flag is checked inside the mainHandler PixelCopy callback — which can
      * fire AFTER stop() returns if the GPU copy was already in flight when stop()
      * was called. Without this guard, a late callback could submit processBitmapAsync
      * to an already-shutdown ioExecutor (causing a RejectedExecutionException) or,
      * worse, use a recycled maskPatternBitmap.
-     *
+     * <p>
      * AtomicBoolean gives us a safe cross-thread visibility guarantee without
      * needing a full synchronized block in the hot capture path.
      */
@@ -92,7 +100,9 @@ public class MiddlewareScreenshotManager {
     private final CopyOnWriteArrayList<WeakReference<View>> sanitizedElements =
             new CopyOnWriteArrayList<>();
 
-    /** Dedicated single-thread executor for all file / network I/O. */
+    /**
+     * Dedicated single-thread executor for all file / network I/O.
+     */
     private ExecutorService ioExecutor;
 
     /**
@@ -123,7 +133,9 @@ public class MiddlewareScreenshotManager {
      */
     private volatile Bitmap maskPatternBitmap;
 
-    /** Shared, long-lived network client (expensive to construct per-call). */
+    /**
+     * Shared, long-lived network client (expensive to construct per-call).
+     */
     private volatile NetworkManager networkManager;
 
     // -------------------------------------------------------------------------
@@ -216,12 +228,12 @@ public class MiddlewareScreenshotManager {
 
     /**
      * Runs on ioExecutor as the very last task in the queue.
-     *
+     * <p>
      * Because ioExecutor is a single-thread FIFO executor and ioExecutor.shutdown()
      * was called immediately after submitting this task, we are guaranteed that:
-     *   1. All previously queued processBitmapAsync tasks have already completed.
-     *   2. No new tasks will be submitted after this point (stopped flag + shutdown).
-     *
+     * 1. All previously queued processBitmapAsync tasks have already completed.
+     * 2. No new tasks will be submitted after this point (stopped flag + shutdown).
+     * <p>
      * It is therefore safe to recycle maskPatternBitmap here — no live task can
      * be holding a reference to the Paint/Shader backed by this bitmap anymore.
      */
@@ -595,6 +607,7 @@ public class MiddlewareScreenshotManager {
     // -------------------------------------------------------------------------
     public void sendScreenshots() {
         final String sessionId = Middleware.getInstance().getRumSessionId();
+        final String resourceAttributes = new Gson().toJson(Middleware.getInstance().getMiddlewareRum().getResource().getAttributes().asMap());
         if (sessionId.isEmpty()) {
             Log.d(LOG_TAG, "SessionId is empty – skipping send");
             return;
@@ -612,7 +625,7 @@ public class MiddlewareScreenshotManager {
             final NetworkManager finalNm = nm;
 
             for (File archive : archives) {
-                finalNm.sendImages(sessionId, archive, archive.getName(), new NetworkCallback() {
+                finalNm.sendImages(sessionId, resourceAttributes, archive, archive.getName(), new NetworkCallback() {
                     @Override
                     public void onSuccess(String response) {
                         deleteSafely(archive);

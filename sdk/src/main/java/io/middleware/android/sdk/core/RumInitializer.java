@@ -39,8 +39,6 @@ import io.opentelemetry.android.instrumentation.activity.VisibleScreenTracker;
 import io.opentelemetry.android.instrumentation.network.CurrentNetworkProvider;
 import io.opentelemetry.android.instrumentation.startup.AppStartupTimer;
 import io.opentelemetry.api.common.Attributes;
-import io.opentelemetry.api.metrics.LongCounter;
-import io.opentelemetry.api.metrics.Meter;
 import io.opentelemetry.proto.common.v1.AnyValue;
 import io.opentelemetry.proto.common.v1.InstrumentationScope;
 import io.opentelemetry.proto.common.v1.KeyValue;
@@ -84,9 +82,7 @@ public class RumInitializer implements IRum {
         VisibleScreenTracker visibleScreenTracker = new VisibleScreenTracker();
         GlobalAttributesSpanAppender globalAttributesSpanAppender = GlobalAttributesSpanAppender.create(builder.globalAttributes);
         final CurrentNetworkProvider currentNetworkProvider = currentNetworkProviderFactory.apply(application);
-        final RumSetup rumSetup = new RumSetup(application);
-        Resource middlewareResource = createMiddlewareResource();
-        rumSetup.mergeResource(middlewareResource);
+        final RumSetup rumSetup = new RumSetup(application, builder);
         initializerEvent.emit("resourceInitialized");
         rumSetup.setGlobalAttributes(globalAttributesSpanAppender);
         initializerEvent.emit("globalAttributesInitialized");
@@ -94,11 +90,11 @@ public class RumInitializer implements IRum {
         initializerEvent.emit("networkAttributesInitialized");
         rumSetup.setScreenAttributes(visibleScreenTracker);
         initializerEvent.emit("screenAttributesInitialized");
-        rumSetup.setMetrics(builder.target, middlewareResource);
+        rumSetup.setMetrics();
         initializerEvent.emit("metricsInitialized");
-        rumSetup.setTraces(builder.target, middlewareResource);
+        rumSetup.setTraces();
         initializerEvent.emit("tracesInitialized");
-        rumSetup.setLogs(builder.target, middlewareResource);
+        rumSetup.setLogs();
         initializerEvent.emit("logsInitialized");
         if (builder.isDebugEnabled()) {
             rumSetup.setLoggingSpanExporter();
@@ -231,29 +227,5 @@ public class RumInitializer implements IRum {
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    private Resource createMiddlewareResource() {
-        // applicationName can't be null at this stage
-        String applicationName = requireNonNull(builder.projectName);
-        ResourceBuilder resourceBuilder = Resource.getDefault().toBuilder().put(APP_NAME_KEY, applicationName);
-        if (builder.deploymentEnvironment != null) {
-            resourceBuilder.put(DEPLOYMENT_ENVIRONMENT.getKey(), builder.deploymentEnvironment);
-        }
-        if (builder.globalAttributes != null) {
-            builder.globalAttributes.forEach((attributeKey, o) -> {
-                resourceBuilder.put(attributeKey.getKey(), String.valueOf(builder.globalAttributes.get(attributeKey)));
-            });
-        }
-        resourceBuilder.put(SERVICE_NAME.getKey(), builder.serviceName);
-        resourceBuilder.put("project.name", builder.projectName);
-        resourceBuilder.put("mw.rum", true);
-        resourceBuilder.put("mw.account_key", builder.rumAccessToken);
-        resourceBuilder.put("browser.trace", "true");
-        resourceBuilder.removeIf(attributeKey -> attributeKey.equals(stringKey("os.name")));
-        resourceBuilder.put("os", "Android");
-        resourceBuilder.put("recording", builder.isRecordingEnabled() ? "1" : "0");
-        resourceBuilder.put(BROWSER_MOBILE.getKey(), "true");
-        return resourceBuilder.build();
     }
 }

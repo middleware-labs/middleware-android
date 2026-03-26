@@ -16,11 +16,11 @@ import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.sdk.resources.Resource;
 
 public interface IRumSetup {
-    void setMetrics(String baseEndpoint, Resource middlewareResource);
+    void setMetrics();
 
-    void setTraces(String target, Resource middlewareResource);
+    void setTraces();
 
-    void setLogs(String target, Resource middlewareResource);
+    void setLogs();
 
     void setLoggingSpanExporter();
 
@@ -42,8 +42,8 @@ public interface IRumSetup {
 
     void setLifecycleInstrumentations(VisibleScreenTracker visibleScreenTracker, AppStartupTimer appStartupTimer);
 
-    void mergeResource(Resource middlewareResource);
-
+    void setResource(Resource resource);
+    Resource getResource();
     MiddlewareSpanExporter getSpanExporter();
 
     MiddlewareMetricsExporter getMetricsExporter();

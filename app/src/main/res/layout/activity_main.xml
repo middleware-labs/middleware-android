@@ -72,4 +72,14 @@
         android:text="@string/application_not_responding"
         app:tint="#ff0000" />
 
+    <Button
+        android:id="@+id/force_new_session"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/anr_button"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="16dp"
+        app:tint="#ff0000"
+        android:text="@string/force_new_session" />
+
 </RelativeLayout>
