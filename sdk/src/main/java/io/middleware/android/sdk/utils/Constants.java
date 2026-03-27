@@ -41,7 +41,7 @@ public final class Constants {
      * @see io.middleware.android.sdk.builders.MiddlewareBuilder#setGlobalAttributes(Attributes)
      */
     public static final AttributeKey<String> APP_VERSION = stringKey("app.version");
-    public static final AttributeKey<Long> SESSION_START_TIME = longKey("session.start_time");
+    public static final AttributeKey<String> SESSION_START_TIME = stringKey("session.start_time");
 
     public static final String BASE_ORIGIN = "sdk.middleware.io";
 

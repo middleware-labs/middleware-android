@@ -53,6 +53,7 @@ import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.instrumentation.api.instrumenter.SpanNameExtractor;
 import io.opentelemetry.instrumentation.okhttp.v3_0.OkHttpTelemetry;
 import io.opentelemetry.sdk.OpenTelemetrySdk;
+import io.opentelemetry.sdk.resources.ResourceBuilder;
 import okhttp3.Call;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
@@ -103,11 +104,12 @@ public class Middleware implements IMiddleware {
         }
         final LifecycleManager lifecycleManager = new LifecycleManager(context.getApplicationContext(),
                 (context instanceof Activity)
-                ? (Activity) context
-                : null);
+                        ? (Activity) context
+                        : null);
         rumInitializer = new RumInitializer(builder, context, startupTimer);
-        INSTANCE = rumInitializer.initialize(Looper.getMainLooper());
-        LOGGER = INSTANCE.getOpenTelemetry().getLogsBridge()
+        Middleware initialized = rumInitializer.initialize(Looper.getMainLooper());
+        INSTANCE = initialized;
+        LOGGER = initialized.getOpenTelemetry().getLogsBridge()
                 .loggerBuilder(builder.serviceName)
                 .build();
         if (builder.isRecordingEnabled()) {
@@ -212,15 +214,20 @@ public class Middleware implements IMiddleware {
         return openTelemetryRum.getRumSessionId();
     }
 
-
     /**
-     * Set Native Session Id.
+     * Set Native Session Id & Session Start time
      * Note: If this is set throughout the session the same session id will be used.
      *
      * @param nativeSessionId
      */
-    public void setNativeSessionId(final String nativeSessionId) {
+    public void setNativeSession(final String nativeSessionId, final String nativeStartTime) {
         this.nativeSessionId = nativeSessionId;
+        ResourceBuilder builder = middlewareRum.getResource().toBuilder();
+        builder.put("session.id", nativeSessionId);
+        builder.put("session.start_time", nativeStartTime);
+        this.setGlobalAttribute(AttributeKey.stringKey("session.id"), nativeSessionId);
+        this.setGlobalAttribute(AttributeKey.stringKey("session.start_time"), nativeStartTime);
+        middlewareRum.setResource(builder.build());
     }
 
     //NOTE: This method is not used as of now will be used in future purposes.
@@ -362,6 +369,7 @@ public class Middleware implements IMiddleware {
     // for testing only
     static void resetSingletonForTest() {
         INSTANCE = null;
+        LOGGER = null;
     }
 
     public void flushSpans() {
@@ -476,6 +484,9 @@ public class Middleware implements IMiddleware {
     }
 
     private void log(String TAG, String message, Severity severity) {
+        if (LOGGER == null) {
+            return;
+        }
         LOGGER.logRecordBuilder()
                 .setSeverity(severity)
                 .setSeverityText(severity.name())

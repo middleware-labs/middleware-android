@@ -7,7 +7,7 @@ mavenPublishing {
     publishToMavenCentral(true)
     signAllPublications()
 
-    coordinates("io.github.middleware-labs", "android-sdk", "2.0.15")
+    coordinates("io.github.middleware-labs", "android-sdk", "2.0.16")
 
     pom {
         name = "Middleware Android RUM SDK"
@@ -73,7 +73,6 @@ dependencies {
     implementation('io.opentelemetry.android:android-agent:0.10.0-alpha') {
         exclude group: 'io.opentelemetry.contrib', module: 'opentelemetry-disk-buffering'
     }
-    implementation 'io.opentelemetry.android:session:0.10.0-alpha'
     implementation 'io.opentelemetry.android:common:0.10.0-alpha'
     implementation 'io.opentelemetry.contrib:opentelemetry-disk-buffering:1.31.0-alpha'
     implementation('io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:2.14.0')
@@ -86,6 +85,7 @@ dependencies {
         exclude group: 'commons-io', module: 'commons-io'
         exclude group: 'org.apache.commons', module: 'commons-lang3'
     }
+    implementation 'io.opentelemetry.semconv:opentelemetry-semconv-incubating:1.40.0-alpha'
     implementation 'commons-io:commons-io:2.14.0'
     implementation 'org.apache.commons:commons-lang3:3.13.0'
     implementation 'commons-codec:commons-codec:1.16.0'

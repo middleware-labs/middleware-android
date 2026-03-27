@@ -15,6 +15,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.MutableLiveData;
 
 import java.io.IOException;
+import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -23,6 +24,7 @@ import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.api.trace.TraceId;
 import io.opentelemetry.context.Scope;
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -56,6 +58,11 @@ public class MainActivity extends AppCompatActivity {
             count++;
             middleware.d("BUTTONS", "User tapped the HTTP Call Button " + count + " times");
             Toast.makeText(getApplicationContext(), "HTTP CALL Successful", Toast.LENGTH_SHORT).show();
+        });
+
+        final Button newSession = findViewById(R.id.force_new_session);
+        newSession.setOnClickListener(v -> {
+            createSession();
         });
 
         middleware.addSanitizedElement(httpButton);
@@ -107,6 +114,13 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+    }
+
+    private void createSession() {
+        Random random = new Random();
+        String newSessionId = TraceId.fromLongs(random.nextLong(), random.nextLong());
+        middleware.setNativeSession(newSessionId, String.valueOf(System.currentTimeMillis()));
+        Toast.makeText(getApplicationContext(), "New Session: " + newSessionId, Toast.LENGTH_SHORT).show();
     }
 
     private void crashFlowTrigger(Span workflow) {

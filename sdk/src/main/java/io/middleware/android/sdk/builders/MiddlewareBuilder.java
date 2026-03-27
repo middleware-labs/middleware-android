@@ -19,14 +19,9 @@ import io.opentelemetry.api.common.Attributes;
 
 public final class MiddlewareBuilder {
 
-    @Nullable
     public String projectName;
-    @Nullable
     public String serviceName;
-    @Nullable
     public String target;
-
-    @Nullable
     public String rumAccessToken;
 
     private final ConfigFlags configFlags = new ConfigFlags();

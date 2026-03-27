@@ -1,10 +1,9 @@
 package io.middleware.android.sdk.core;
 
 import static java.util.Objects.requireNonNull;
-import static io.middleware.android.sdk.utils.Constants.APP_NAME_KEY;
 import static io.middleware.android.sdk.utils.Constants.BASE_ORIGIN;
 import static io.middleware.android.sdk.utils.Constants.RUM_TRACER_NAME;
-import static io.opentelemetry.api.common.AttributeKey.stringKey;
+import static io.middleware.android.sdk.utils.Constants.SESSION_START_TIME;
 
 import android.app.Activity;
 import android.app.Application;
@@ -42,8 +41,6 @@ import io.opentelemetry.proto.metrics.v1.MetricsData;
 import io.opentelemetry.proto.metrics.v1.NumberDataPoint;
 import io.opentelemetry.proto.metrics.v1.ResourceMetrics;
 import io.opentelemetry.proto.metrics.v1.ScopeMetrics;
-import io.opentelemetry.sdk.resources.Resource;
-import io.opentelemetry.sdk.resources.ResourceBuilder;
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.OkHttpClient;
@@ -73,16 +70,17 @@ public class RumInitializer implements IRum {
     @Override
     public Middleware initialize(Looper mainLooper) {
         initializerEvent.begin();
-        GlobalAttributesSpanAppender globalAttributesSpanAppender = GlobalAttributesSpanAppender.create(builder.globalAttributes);
-        final RumSetup rumSetup = new RumSetup(application);
-        Resource middlewareResource = createMiddlewareResource();
-        rumSetup.mergeResource(middlewareResource);
+        long startTimeMs = appStartupTimer.clockNow() / 1_000_000L;
+        Attributes globalAttributes = builder.globalAttributes.toBuilder().put(SESSION_START_TIME, String.valueOf(startTimeMs)).build();
+        builder.setGlobalAttributes(globalAttributes);
+        GlobalAttributesSpanAppender globalAttributesSpanAppender = GlobalAttributesSpanAppender.create(globalAttributes);
+        final RumSetup rumSetup = new RumSetup(application, builder);
         initializerEvent.emit("resourceInitialized");
         rumSetup.setGlobalAttributes(globalAttributesSpanAppender);
         initializerEvent.emit("globalAttributesInitialized");
-        rumSetup.setTraces(builder.target, middlewareResource);
+        rumSetup.setTraces();
         initializerEvent.emit("tracesInitialized");
-        rumSetup.setLogs(builder.target, middlewareResource);
+        rumSetup.setLogs();
         initializerEvent.emit("logsInitialized");
         if (builder.isDebugEnabled()) {
             rumSetup.setLoggingSpanExporter();
@@ -118,7 +116,6 @@ public class RumInitializer implements IRum {
     }
 
     public void sendRumEvent(ReplayRecording replayRecording, Attributes attributes) {
-        attributes = attributes.toBuilder().put("mw.account_key", builder.rumAccessToken).build();
         final ResourceMetrics resourceMetrics = new ResourceMetrics.Builder().resource(
                         new io.opentelemetry.proto.resource.v1.Resource.Builder()
                                 .attributes(attributesToKeyValueIterable(attributes)).build()
@@ -186,7 +183,7 @@ public class RumInitializer implements IRum {
         Request request = new Request.Builder()
                 .url(rumData.getEndpoint())
                 .header("Origin", BASE_ORIGIN)
-                .header("MW_API_KEY", rumData.getAccessToken())
+                .header("Authorization", rumData.getAccessToken())
                 .header("Content-Type", "application/json")
                 .post(requestBody)
                 .build();
@@ -209,23 +206,5 @@ public class RumInitializer implements IRum {
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    private Resource createMiddlewareResource() {
-        // applicationName can't be null at this stage
-        String applicationName = requireNonNull(builder.projectName);
-        ResourceBuilder resourceBuilder = Resource.getDefault().toBuilder().put(APP_NAME_KEY, applicationName);
-        if (builder.deploymentEnvironment != null) {
-            resourceBuilder.put("env", builder.deploymentEnvironment);
-        }
-        resourceBuilder.put("service.name", builder.serviceName);
-        resourceBuilder.put("project.name", builder.projectName);
-        resourceBuilder.put("mw.rum", true);
-        resourceBuilder.removeIf(attributeKey -> attributeKey.equals(stringKey("os.name")));
-        resourceBuilder.put("os", "Android");
-        resourceBuilder.put("recording", builder.isRecordingEnabled() ? "1" : "0");
-        resourceBuilder.put("mw.account_key", builder.rumAccessToken);
-        resourceBuilder.put("browser.trace", "true");
-        return resourceBuilder.build();
     }
 }

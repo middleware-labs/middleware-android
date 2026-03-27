@@ -6,4 +6,5 @@
     <string name="worker">WORKER</string>
     <string name="custom_rum_event">CUSTOM RUM EVENT</string>
     <string name="application_not_responding">APPLICATION NOT RESPONDING</string>
+    <string name="force_new_session">FORCE NEW SESSION</string>
 </resources>
