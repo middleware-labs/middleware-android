@@ -109,10 +109,12 @@ public class Middleware implements IMiddleware {
                         ? (Activity) context
                         : null);
         rumInitializer = new RumInitializer(builder, context, startupTimer);
-        INSTANCE = rumInitializer.initialize(currentNetworkProviderFactory, Looper.getMainLooper());
-        LOGGER = INSTANCE.getOpenTelemetry().getLogsBridge()
+        Middleware initialized =
+                rumInitializer.initialize(currentNetworkProviderFactory, Looper.getMainLooper());
+        LOGGER = initialized.getOpenTelemetry().getLogsBridge()
                 .loggerBuilder(builder.serviceName)
                 .build();
+        INSTANCE = initialized;
         if (builder.isRecordingEnabled()) {
             Log.d(LOG_TAG, "Session recording enabled, waiting layout to get attached.");
             middlewareScreenshotManager = new MiddlewareScreenshotManager(
@@ -374,6 +376,7 @@ public class Middleware implements IMiddleware {
     // for testing only
     static void resetSingletonForTest() {
         INSTANCE = null;
+        LOGGER = null;
     }
 
     public void flushSpans() {
@@ -488,12 +491,14 @@ public class Middleware implements IMiddleware {
     }
 
     private void log(String TAG, String message, Severity severity) {
+        if (LOGGER == null) {
+            return;
+        }
         LOGGER.logRecordBuilder()
                 .setSeverity(severity)
                 .setSeverityText(severity.name())
                 .setBody(message)
                 .setAttribute(AttributeKey.stringKey("TAG"), TAG)
                 .emit();
-
     }
 }
