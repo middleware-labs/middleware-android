@@ -47,13 +47,19 @@ public class MiddlewareScreenshotManager {
     // -------------------------------------------------------------------------
     // Configuration
     // -------------------------------------------------------------------------
-    /** Maximum number of screenshots kept in the screenshots/ folder before archiving. */
+    /**
+     * Maximum number of screenshots kept in the screenshots/ folder before archiving.
+     */
     private static final int ARCHIVE_CHUNK_SIZE = 10;
 
-    /** Minimum short-edge resolution for the compressed output. */
+    /**
+     * Minimum short-edge resolution for the compressed output.
+     */
     private static final int MIN_RESOLUTION_PX = 320;
 
-    /** Reusable I/O buffer size for streaming file reads/writes. */
+    /**
+     * Reusable I/O buffer size for streaming file reads/writes.
+     */
     private static final int IO_BUFFER_SIZE = 8192;
 
     /**
@@ -64,13 +70,14 @@ public class MiddlewareScreenshotManager {
 
     /**
      * Set to true by stop() before any executor shutdown.
-     *
+     * <p>
      * This flag is checked inside the mainHandler PixelCopy callback — which can
      * fire AFTER stop() returns if the GPU copy was already in flight when stop()
-     * was called. Without this guard, a late callback could submit processBitmapAsync
+     * was called. Without this guard, a late callback could submit
+     * processBitmapAsync
      * to an already-shutdown ioExecutor (causing a RejectedExecutionException) or,
      * worse, use a recycled maskPatternBitmap.
-     *
+     * <p>
      * AtomicBoolean gives us a safe cross-thread visibility guarantee without
      * needing a full synchronized block in the hot capture path.
      */
@@ -89,14 +96,16 @@ public class MiddlewareScreenshotManager {
      * CopyOnWriteArrayList lets us iterate without locking from the main thread
      * while background threads add/remove elements.
      */
-    private final CopyOnWriteArrayList<WeakReference<View>> sanitizedElements =
-            new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<WeakReference<View>> sanitizedElements = new CopyOnWriteArrayList<>();
 
-    /** Dedicated single-thread executor for all file / network I/O. */
+    /**
+     * Dedicated single-thread executor for all file / network I/O.
+     */
     private ExecutorService ioExecutor;
 
     /**
-     * Single-thread scheduler is sufficient — the send task dispatches to ioExecutor
+     * Single-thread scheduler is sufficient — the send task dispatches to
+     * ioExecutor
      * anyway, so a second scheduler thread is wasted.
      */
     private ScheduledExecutorService scheduler;
@@ -123,7 +132,9 @@ public class MiddlewareScreenshotManager {
      */
     private volatile Bitmap maskPatternBitmap;
 
-    /** Shared, long-lived network client (expensive to construct per-call). */
+    /**
+     * Shared, long-lived network client (expensive to construct per-call).
+     */
     private volatile NetworkManager networkManager;
 
     // -------------------------------------------------------------------------
@@ -150,7 +161,8 @@ public class MiddlewareScreenshotManager {
             return t;
         });
 
-        // One scheduler thread is enough — capture runs inline, send dispatches to ioExecutor.
+        // One scheduler thread is enough — capture runs inline, send dispatches to
+        // ioExecutor.
         scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "mw-screenshot-scheduler");
             t.setPriority(Thread.MIN_PRIORITY);
@@ -197,7 +209,8 @@ public class MiddlewareScreenshotManager {
 
         // Queue the terminal flush as the last task on ioExecutor, then shut down.
         // ioExecutor.shutdown() does not cancel already-queued tasks — terminateFlush
-        // is guaranteed to run after every previously queued processBitmapAsync finishes,
+        // is guaranteed to run after every previously queued processBitmapAsync
+        // finishes,
         // because ioExecutor is a single-thread FIFO executor.
         if (ioExecutor != null && !ioExecutor.isShutdown()) {
             ioExecutor.execute(this::terminateFlush);
@@ -216,12 +229,12 @@ public class MiddlewareScreenshotManager {
 
     /**
      * Runs on ioExecutor as the very last task in the queue.
-     *
+     * <p>
      * Because ioExecutor is a single-thread FIFO executor and ioExecutor.shutdown()
      * was called immediately after submitting this task, we are guaranteed that:
-     *   1. All previously queued processBitmapAsync tasks have already completed.
-     *   2. No new tasks will be submitted after this point (stopped flag + shutdown).
-     *
+     * 1. All previously queued processBitmapAsync tasks have already completed.
+     * 2. No new tasks will be submitted after this point (stopped flag + shutdown).
+     * <p>
      * It is therefore safe to recycle maskPatternBitmap here — no live task can
      * be holding a reference to the Paint/Shader backed by this bitmap anymore.
      */
@@ -251,16 +264,21 @@ public class MiddlewareScreenshotManager {
      * <p>
      * Strategy:
      * <ol>
-     *   <li>Post a tiny Runnable to the main thread to *start* PixelCopy (required by the API).
-     *   <li>PixelCopy delivers its result to {@link #mainHandler} – we immediately hand the
-     *       raw bitmap to {@link #ioExecutor} for masking, scaling, compression and saving.
-     *   <li>If PixelCopy is unavailable (pre-O) we fall back to View.draw() on the main thread.
+     * <li>Post a tiny Runnable to the main thread to *start* PixelCopy (required by
+     * the API).
+     * <li>PixelCopy delivers its result to {@link #mainHandler} – we immediately
+     * hand the
+     * raw bitmap to {@link #ioExecutor} for masking, scaling, compression and
+     * saving.
+     * <li>If PixelCopy is unavailable (pre-O) we fall back to View.draw() on the
+     * main thread.
      * </ol>
      */
     private void takeScreenshotAsync() {
         mainHandler.post(() -> {
             // Check the stopped flag here too — this Runnable may have been posted to
-            // mainHandler just before stop() was called, and could run after stop() returns.
+            // mainHandler just before stop() was called, and could run after stop()
+            // returns.
             if (stopped.get()) {
                 captureInFlight.set(false);
                 return;
@@ -315,7 +333,8 @@ public class MiddlewareScreenshotManager {
                             if (fallback != null && ioExecutor != null && !ioExecutor.isShutdown()) {
                                 ioExecutor.execute(() -> processBitmapAsync(fallback, null));
                             } else {
-                                if (fallback != null) fallback.recycle();
+                                if (fallback != null)
+                                    fallback.recycle();
                                 captureInFlight.set(false);
                             }
                         }
@@ -327,7 +346,8 @@ public class MiddlewareScreenshotManager {
                     if (fallback != null && ioExecutor != null && !ioExecutor.isShutdown()) {
                         ioExecutor.execute(() -> processBitmapAsync(fallback, null));
                     } else {
-                        if (fallback != null) fallback.recycle();
+                        if (fallback != null)
+                            fallback.recycle();
                         captureInFlight.set(false);
                     }
                 }
@@ -339,7 +359,8 @@ public class MiddlewareScreenshotManager {
     }
 
     /**
-     * Called on the UI thread to snapshot the screen coordinates of all sanitized views.
+     * Called on the UI thread to snapshot the screen coordinates of all sanitized
+     * views.
      * Also prunes dead WeakReferences to prevent accumulation over long sessions.
      */
     private List<int[]> collectMaskRects(View rootView) {
@@ -368,7 +389,8 @@ public class MiddlewareScreenshotManager {
     }
 
     private void collectSanitizableGroups(View view, int[] rootLoc, List<int[]> out) {
-        if (!(view instanceof ViewGroup)) return;
+        if (!(view instanceof ViewGroup))
+            return;
         ViewGroup group = (ViewGroup) view;
         for (int i = 0; i < group.getChildCount(); i++) {
             View child = group.getChildAt(i);
@@ -405,7 +427,8 @@ public class MiddlewareScreenshotManager {
     }
 
     private Bitmap applyMasks(Bitmap bitmap, List<int[]> maskRects) {
-        if (maskRects == null || maskRects.isEmpty()) return bitmap;
+        if (maskRects == null || maskRects.isEmpty())
+            return bitmap;
 
         Bitmap mutable = bitmap.copy(Bitmap.Config.ARGB_8888, true);
         bitmap.recycle();
@@ -471,7 +494,8 @@ public class MiddlewareScreenshotManager {
                 }
                 return outputStream.toByteArray();
             } finally {
-                if (scaled != originalBitmap) scaled.recycle();
+                if (scaled != originalBitmap)
+                    scaled.recycle();
             }
         } finally {
             originalBitmap.recycle();
@@ -544,7 +568,8 @@ public class MiddlewareScreenshotManager {
     // -------------------------------------------------------------------------
     private void archivateFolder(File folder) {
         File[] screenshots = folder.listFiles();
-        if (screenshots == null || screenshots.length == 0) return;
+        if (screenshots == null || screenshots.length == 0)
+            return;
 
         Arrays.sort(screenshots, Comparator.comparingLong(File::lastModified));
 
@@ -587,7 +612,8 @@ public class MiddlewareScreenshotManager {
             return;
         }
 
-        for (File f : screenshots) deleteSafely(f);
+        for (File f : screenshots)
+            deleteSafely(f);
     }
 
     // -------------------------------------------------------------------------
@@ -595,6 +621,7 @@ public class MiddlewareScreenshotManager {
     // -------------------------------------------------------------------------
     public void sendScreenshots() {
         final String sessionId = Middleware.getInstance().getRumSessionId();
+        final String resourceAttributes = Middleware.getInstance().getMiddlewareRum().getResourceAttributes();
         if (sessionId.isEmpty()) {
             Log.d(LOG_TAG, "SessionId is empty – skipping send");
             return;
@@ -602,7 +629,8 @@ public class MiddlewareScreenshotManager {
         try {
             File archiveFolder = getArchiveFolder();
             File[] archives = archiveFolder.listFiles();
-            if (archives == null || archives.length == 0) return;
+            if (archives == null || archives.length == 0)
+                return;
 
             NetworkManager nm = networkManager;
             if (nm == null) {
@@ -612,7 +640,7 @@ public class MiddlewareScreenshotManager {
             final NetworkManager finalNm = nm;
 
             for (File archive : archives) {
-                finalNm.sendImages(sessionId, archive, archive.getName(), new NetworkCallback() {
+                finalNm.sendImages(sessionId, resourceAttributes, archive, archive.getName(), new NetworkCallback() {
                     @Override
                     public void onSuccess(String response) {
                         deleteSafely(archive);
@@ -637,7 +665,8 @@ public class MiddlewareScreenshotManager {
     }
 
     public void removeSanitizedElement(View element) {
-        if (element == null) return;
+        if (element == null)
+            return;
         sanitizedElements.removeIf(ref -> {
             View v = ref.get();
             return v == null || v == element;
@@ -650,7 +679,8 @@ public class MiddlewareScreenshotManager {
     private void checkAndReportOrientationChange() {
         try {
             Context ctx = uiContext.get();
-            if (ctx == null) return;
+            if (ctx == null)
+                return;
             int orientation = ctx.getResources().getConfiguration().orientation;
             if (orientation != lastOrientation) {
                 lastOrientation = orientation;
@@ -671,18 +701,20 @@ public class MiddlewareScreenshotManager {
 
     private File getScreenshotFolder() {
         Context ctx = uiContext.get();
-        if (ctx == null) throw new IllegalStateException("No context");
+        if (ctx == null)
+            throw new IllegalStateException("No context");
         File folder = new File(ctx.getFilesDir(), "screenshots");
-        //noinspection ResultOfMethodCallIgnored
+        // noinspection ResultOfMethodCallIgnored
         folder.mkdirs();
         return folder;
     }
 
     private File getArchiveFolder() {
         Context ctx = uiContext.get();
-        if (ctx == null) throw new IllegalStateException("No context");
+        if (ctx == null)
+            throw new IllegalStateException("No context");
         File folder = new File(ctx.getFilesDir(), "archives");
-        //noinspection ResultOfMethodCallIgnored
+        // noinspection ResultOfMethodCallIgnored
         folder.mkdirs();
         return folder;
     }
@@ -695,7 +727,7 @@ public class MiddlewareScreenshotManager {
 
     private void deleteSafely(File file) {
         if (file != null && file.exists()) {
-            //noinspection ResultOfMethodCallIgnored
+            // noinspection ResultOfMethodCallIgnored
             file.delete();
         }
     }

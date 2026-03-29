@@ -83,7 +83,7 @@ public class NetworkManager {
      * {@link RequestBody#create(File, MediaType)} reads the file in chunks — heap
      * usage is constant regardless of archive size, eliminating the OOM.
      */
-    public void sendImages(String sessionId, File archive, String name, final NetworkCallback callback) {
+    public void sendImages(String sessionId, String resourceAttributes, File archive, String name, final NetworkCallback callback) {
         if (token == null) {
             callback.onError(new IOException("Token is null"));
             return;
@@ -97,6 +97,7 @@ public class NetworkManager {
         MultipartBody.Builder requestBodyBuilder = new MultipartBody.Builder(boundary)
                 .setType(MultipartBody.FORM)
                 .addFormDataPart("sessionId", sessionId)
+                .addFormDataPart("resourceAttributes", resourceAttributes)
                 .addFormDataPart("batch", name,
                         RequestBody.create(archive, MediaType.parse("application/gzip")));
 

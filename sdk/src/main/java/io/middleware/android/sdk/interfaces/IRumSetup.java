@@ -13,9 +13,9 @@ import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.sdk.resources.Resource;
 
 public interface IRumSetup {
-    void setTraces(String target, Resource middlewareResource);
+    void setTraces();
 
-    void setLogs(String target, Resource middlewareResource);
+    void setLogs();
 
     void setLoggingSpanExporter();
 
@@ -31,7 +31,9 @@ public interface IRumSetup {
 
     void setCrashReporter();
 
-    void mergeResource(Resource middlewareResource);
+    void setResource(Resource resource);
+    Resource getResource();
+    String getResourceAttributes();
 
     MiddlewareSpanExporter getSpanExporter();
 
