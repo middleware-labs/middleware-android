@@ -1,0 +1,41 @@
+name: release-sourcemap-plugin
+on:
+  workflow_dispatch:
+    inputs:
+      versionName:
+        description: 'Version Name'
+        required: true
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4.1.1
+      - name: Set up Java 17 for running Gradle
+        uses: actions/setup-java@v3.13.0
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Grant Permission to Execute Gradle
+        run: chmod +x gradlew
+
+      - name: Build with Gradle
+        uses: gradle/gradle-build-action@v2
+        with:
+          arguments: build
+
+      - name: Publish Sourcemap Plugin
+        run: |
+          echo "Publishing plugin ${{ github.event.inputs.versionName }}🚀🚀"
+          ./gradlew :sourcemap-plugin:publish --no-daemon
+          echo "Published✅"
+        env:
+          ORG_GRADLE_PROJECT_VERSION_NAME: ${{ github.event.inputs.versionName }}
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_SECRET }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.GPG_ID }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_PASSWORD }}

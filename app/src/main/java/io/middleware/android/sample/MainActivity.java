@@ -114,6 +114,10 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+
+        findViewById(R.id.btn_trigger_crash).setOnClickListener(view -> {
+            new CrashHelper().executeRiskOperation();
+        });
     }
 
     private void createSession() {

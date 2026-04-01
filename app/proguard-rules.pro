@@ -19,3 +19,8 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+-dontwarn io.opentelemetry.contrib.disk.buffering.**
+# Ensure R8 renames as much as possible for testing
+-repackageclasses ''
+-allowaccessmodification
+-overloadaggressively

@@ -1,0 +1,86 @@
+plugins {
+    id 'groovy'
+    id 'java-gradle-plugin'
+    id 'maven-publish'
+    id 'signing' // Required for Maven Central
+}
+
+group   = 'io.middleware'
+version = '1.0.0'
+
+// Maven Central requires Sources and Javadoc jars
+java {
+    withSourcesJar()
+    withJavadocJar()
+}
+
+dependencies {
+    compileOnly 'com.android.tools.build:gradle:8.3.0'
+    implementation localGroovy()
+}
+
+gradlePlugin {
+    plugins {
+        middlewareSourcemap {
+            id                  = 'io.middleware.sourcemap'
+            implementationClass = 'io.middleware.sourcemap.MiddlewareSourcemapPlugin'
+        }
+    }
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+            artifactId = 'middleware-sourcemap-gradle-plugin'
+
+            // Maven Central required Metadata
+            pom {
+                name = 'Middleware Sourcemap Gradle Plugin'
+                description = 'Gradle plugin for uploading R8/ProGuard mapping files to Middleware'
+                url = 'https://github.com/middleware-labs/middleware-android'
+
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0'
+                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'middleware-labs'
+                        name = 'Middleware Team'
+                        email = 'support@middleware.io'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:git://github.com/middleware-labs/middleware-android.git'
+                    developerConnection = 'scm:git:ssh://github.com/middleware-labs/middleware-android.git'
+                    url = 'https://github.com/middleware-labs/middleware-android'
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            name = "OSSRH"
+            // Using the new Sonatype S01 host
+            url = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+            credentials {
+                username = System.getenv("OSSRH_USERNAME")
+                password = System.getenv("OSSRH_PASSWORD")
+            }
+        }
+    }
+}
+
+signing {
+    // Only sign if we are publishing and have the keys
+    def hasKey = project.hasProperty('signing.keyId') || System.getenv("SIGNING_KEY_ID")
+    required { hasKey && gradle.taskGraph.hasTask("publish") }
+    sign publishing.publications.maven
+}
+
+tasks.named('processResources') {
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+}
