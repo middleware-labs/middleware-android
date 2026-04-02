@@ -4,10 +4,11 @@ plugins {
 }
 
 mavenPublishing {
-    publishToMavenCentral(true)
+    publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL)
     signAllPublications()
 
-    coordinates("io.github.middleware-labs", "android-sdk", "2.0.16")
+    // Reads ORG_GRADLE_PROJECT_VERSION_NAME injected by CI
+    coordinates("io.github.middleware-labs", "android-sdk", project.findProperty("VERSION_NAME") ?: "2.0.16")
 
     pom {
         name = "Middleware Android RUM SDK"
@@ -35,6 +36,7 @@ mavenPublishing {
         }
     }
 }
+
 android {
     namespace 'io.middleware.android.sdk'
     compileSdk 36

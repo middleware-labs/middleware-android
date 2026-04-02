@@ -1,18 +1,11 @@
 plugins {
     id 'groovy'
     id 'java-gradle-plugin'
-    id 'maven-publish'
-    id 'signing'
+    id 'com.vanniktech.maven.publish' version '0.34.0'
 }
 
 group   = 'io.middleware'
-// Read version from ORG_GRADLE_PROJECT_VERSION_NAME env var injected by CI
 version = project.findProperty('VERSION_NAME') ?: '1.0.0'
-
-java {
-    withSourcesJar()
-    withJavadocJar()
-}
 
 dependencies {
     compileOnly 'com.android.tools.build:gradle:8.3.0'
@@ -28,64 +21,39 @@ gradlePlugin {
     }
 }
 
-publishing {
-    publications {
-        maven(MavenPublication) {
-            from components.java
-            artifactId = 'middleware-sourcemap-gradle-plugin'
+mavenPublishing {
+    // Publishes to Maven Central via the new portal
+    publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL)
 
-            pom {
-                name = 'Middleware Sourcemap Gradle Plugin'
-                description = 'Gradle plugin for uploading R8/ProGuard mapping files to Middleware'
-                url = 'https://github.com/middleware-labs/middleware-android'
+    // Signs with in-memory key from CI env
+    signAllPublications()
 
-                licenses {
-                    license {
-                        name = 'The Apache License, Version 2.0'
-                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
-                    }
-                }
-                developers {
-                    developer {
-                        id = 'middleware-labs'
-                        name = 'Middleware Team'
-                        email = 'support@middleware.io'
-                    }
-                }
-                scm {
-                    connection = 'scm:git:git://github.com/middleware-labs/middleware-android.git'
-                    developerConnection = 'scm:git:ssh://github.com/middleware-labs/middleware-android.git'
-                    url = 'https://github.com/middleware-labs/middleware-android'
-                }
+    coordinates('io.middleware', 'middleware-sourcemap-gradle-plugin', version.toString())
+
+    pom {
+        name = 'Middleware Sourcemap Gradle Plugin'
+        description = 'Gradle plugin for uploading R8/ProGuard mapping files to Middleware'
+        url = 'https://github.com/middleware-labs/middleware-android'
+
+        licenses {
+            license {
+                name = 'The Apache License, Version 2.0'
+                url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
             }
         }
-    }
-
-    repositories {
-        maven {
-            name = "OSSRH"
-            url = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
-            credentials {
-                // These now map correctly to ORG_GRADLE_PROJECT_mavenCentralUsername / Password
-                username = project.findProperty('mavenCentralUsername') ?: ''
-                password = project.findProperty('mavenCentralPassword') ?: ''
+        developers {
+            developer {
+                id = 'middleware-labs'
+                name = 'Middleware Team'
+                email = 'support@middleware.io'
             }
         }
+        scm {
+            connection = 'scm:git:git://github.com/middleware-labs/middleware-android.git'
+            developerConnection = 'scm:git:ssh://github.com/middleware-labs/middleware-android.git'
+            url = 'https://github.com/middleware-labs/middleware-android'
+        }
     }
-}
-
-signing {
-    def signingKey      = project.findProperty('signingInMemoryKey')
-    def signingKeyId    = project.findProperty('signingInMemoryKeyId')
-    def signingPassword = project.findProperty('signingInMemoryKeyPassword')
-
-    // Use in-memory ASCII-armored key (no gpg keyring needed on CI)
-    if (signingKey) {
-        useInMemoryPgpKeys(signingKeyId, signingKey, signingPassword)
-    }
-
-    required { signingKey != null && gradle.taskGraph.hasTask("publish") }
-    sign publishing.publications.maven
 }
 
 tasks.named('processResources') {
