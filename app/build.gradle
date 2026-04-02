@@ -1,6 +1,11 @@
 plugins {
     id 'com.android.application'
+    id 'io.github.middleware-labs.sourcemap' version '1.0.0'
 }
+
+//middlewareSourcemap {
+//    apiKey     = ""
+//}
 
 android {
     namespace 'io.middleware.android.sample'
@@ -34,6 +39,10 @@ android {
 
 
     buildTypes {
+        debug{
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
