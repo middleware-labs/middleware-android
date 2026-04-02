@@ -1,7 +1,7 @@
 plugins {
     id 'groovy'
     id 'java-gradle-plugin'
-    id 'com.vanniktech.maven.publish' version '0.34.0'
+    id 'com.vanniktech.maven.publish' version '0.36.0'
 }
 
 group   = 'io.middleware'
@@ -23,7 +23,7 @@ gradlePlugin {
 
 mavenPublishing {
     // Publishes to Maven Central via the new portal
-    publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL)
+    publishToMavenCentral()
 
     // Signs with in-memory key from CI env
     signAllPublications()
