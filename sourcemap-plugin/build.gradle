@@ -15,7 +15,7 @@ dependencies {
 gradlePlugin {
     plugins {
         middlewareSourcemap {
-            id                  = 'io.middleware.sourcemap'
+            id                  = 'io.github.middleware-labs.sourcemap'
             implementationClass = 'io.middleware.sourcemap.MiddlewareSourcemapPlugin'
         }
     }
