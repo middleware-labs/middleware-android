@@ -4,7 +4,7 @@ plugins {
     id 'com.vanniktech.maven.publish' version '0.34.0'
 }
 
-group   = 'io.middleware'
+group   = 'io.github.middleware-labs'
 version = project.findProperty('VERSION_NAME') ?: '1.0.0'
 
 dependencies {
@@ -28,7 +28,7 @@ mavenPublishing {
     // Signs with in-memory key from CI env
     signAllPublications()
 
-    coordinates('io.middleware', 'middleware-sourcemap-gradle-plugin', version.toString())
+    coordinates('io.github.middleware-labs', 'middleware-sourcemap-gradle-plugin', version.toString())
 
     pom {
         name = 'Middleware Sourcemap Gradle Plugin'
