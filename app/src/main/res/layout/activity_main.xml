@@ -73,10 +73,21 @@
         app:tint="#ff0000" />
 
     <Button
+        android:id="@+id/btn_trigger_crash"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/trigger_obfuscated_crash"
+        android:layout_below="@id/anr_button"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="16dp"
+        app:tint="#ff0000"
+        />
+
+    <Button
         android:id="@+id/force_new_session"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_below="@id/anr_button"
+        android:layout_below="@id/btn_trigger_crash"
         android:layout_centerHorizontal="true"
         android:layout_marginTop="16dp"
         android:text="@string/force_new_session"

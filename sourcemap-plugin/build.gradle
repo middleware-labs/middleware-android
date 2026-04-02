@@ -2,13 +2,13 @@ plugins {
     id 'groovy'
     id 'java-gradle-plugin'
     id 'maven-publish'
-    id 'signing' // Required for Maven Central
+    id 'signing'
 }
 
 group   = 'io.middleware'
-version = '1.0.0'
+// Read version from ORG_GRADLE_PROJECT_VERSION_NAME env var injected by CI
+version = project.findProperty('VERSION_NAME') ?: '1.0.0'
 
-// Maven Central requires Sources and Javadoc jars
 java {
     withSourcesJar()
     withJavadocJar()
@@ -34,7 +34,6 @@ publishing {
             from components.java
             artifactId = 'middleware-sourcemap-gradle-plugin'
 
-            // Maven Central required Metadata
             pom {
                 name = 'Middleware Sourcemap Gradle Plugin'
                 description = 'Gradle plugin for uploading R8/ProGuard mapping files to Middleware'
@@ -61,23 +60,31 @@ publishing {
             }
         }
     }
+
     repositories {
         maven {
             name = "OSSRH"
-            // Using the new Sonatype S01 host
             url = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
             credentials {
-                username = System.getenv("OSSRH_USERNAME")
-                password = System.getenv("OSSRH_PASSWORD")
+                // These now map correctly to ORG_GRADLE_PROJECT_mavenCentralUsername / Password
+                username = project.findProperty('mavenCentralUsername') ?: ''
+                password = project.findProperty('mavenCentralPassword') ?: ''
             }
         }
     }
 }
 
 signing {
-    // Only sign if we are publishing and have the keys
-    def hasKey = project.hasProperty('signing.keyId') || System.getenv("SIGNING_KEY_ID")
-    required { hasKey && gradle.taskGraph.hasTask("publish") }
+    def signingKey      = project.findProperty('signingInMemoryKey')
+    def signingKeyId    = project.findProperty('signingInMemoryKeyId')
+    def signingPassword = project.findProperty('signingInMemoryKeyPassword')
+
+    // Use in-memory ASCII-armored key (no gpg keyring needed on CI)
+    if (signingKey) {
+        useInMemoryPgpKeys(signingKeyId, signingKey, signingPassword)
+    }
+
+    required { signingKey != null && gradle.taskGraph.hasTask("publish") }
     sign publishing.publications.maven
 }
 
