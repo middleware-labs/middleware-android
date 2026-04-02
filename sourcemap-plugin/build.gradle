@@ -1,14 +1,14 @@
 plugins {
     id 'groovy'
     id 'java-gradle-plugin'
-    id 'com.vanniktech.maven.publish' version '0.36.0'
+    id 'com.vanniktech.maven.publish' version '0.34.0'
 }
 
 group   = 'io.middleware'
 version = project.findProperty('VERSION_NAME') ?: '1.0.0'
 
 dependencies {
-    compileOnly 'com.android.tools.build:gradle:8.3.0'
+    compileOnly 'com.android.tools.build:gradle:8.3.2'
     implementation localGroovy()
 }
 
