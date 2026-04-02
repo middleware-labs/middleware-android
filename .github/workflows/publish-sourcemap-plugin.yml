@@ -29,9 +29,9 @@ jobs:
 
       - name: Publish Sourcemap Plugin
         run: |
-          echo "Publishing plugin ${{ github.event.inputs.versionName }}🚀🚀"
-          ./gradlew :sourcemap-plugin:publish --no-daemon
-          echo "Published✅"
+          echo "Publishing plugin ${{ github.event.inputs.versionName }} 🚀"
+          ./gradlew :sourcemap-plugin:publishAndReleaseToMavenCentral --no-daemon
+          echo "Published ✅"
         env:
           ORG_GRADLE_PROJECT_VERSION_NAME: ${{ github.event.inputs.versionName }}
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
