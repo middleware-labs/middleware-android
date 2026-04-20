@@ -27,6 +27,7 @@ public class CrashAttributesExtractor implements AttributesExtractor<CrashDetail
             attributes.put("exception.stacktrace", stackTraceToString(middlewareCrashDetails.getCause()));
             attributes.put("error.stack", stackTraceToString(middlewareCrashDetails.getCause()));
             attributes.put("exception.type", middlewareCrashDetails.getClass().getName());
+            attributes.put("exception.framework", "android");
             attributes.put("error.type", middlewareCrashDetails.getClass().getName());
         }
     }
