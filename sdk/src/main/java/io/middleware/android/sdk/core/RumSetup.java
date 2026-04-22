@@ -71,6 +71,7 @@ public class RumSetup implements IRumSetup {
         otelRumConfig.shouldDiscoverInstrumentations();
         otelRumConfig.shouldIncludeScreenAttributes();
         otelRumConfig.shouldGenerateSdkInitializationEvents();
+        otelRumConfig.setSessionTimeout(Duration.ofMinutes(5));
         openTelemetryRumBuilder = OpenTelemetryRum.builder(application, otelRumConfig);
         openTelemetryRumBuilder.mergeResource(resource);
     }
