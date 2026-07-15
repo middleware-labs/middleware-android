@@ -109,6 +109,7 @@ public class RumInitializer implements IRum {
             initializerEvent.emit("crashReportingInitialized");
         }
         final OpenTelemetryRum openTelemetryRum = rumSetup.build();
+        rumSetup.bindSessionProvider(openTelemetryRum);
         initializerEvent.recordInitializationSpans(
                 builder.getConfigFlags(),
                 openTelemetryRum.getOpenTelemetry().getTracer(RUM_TRACER_NAME));

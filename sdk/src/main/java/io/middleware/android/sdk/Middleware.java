@@ -24,7 +24,10 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -64,10 +67,13 @@ import okhttp3.Request;
  */
 public class Middleware implements IMiddleware {
     private static final AppStartupTimer startupTimer = new AppStartupTimer();
+    private static final long RECORDING_SESSION_WATCH_INTERVAL_SECONDS = 15L;
     @Nullable
     private static Middleware INSTANCE;
     private static Logger LOGGER;
     private static MiddlewareScreenshotManager middlewareScreenshotManager;
+    @Nullable
+    private static ScheduledExecutorService recordingSessionWatcher;
     private final OpenTelemetryRum openTelemetryRum;
 
     private final RumSetup middlewareRum;
@@ -113,12 +119,74 @@ public class Middleware implements IMiddleware {
                 .loggerBuilder(builder.serviceName)
                 .build();
         if (builder.isRecordingEnabled()) {
-            Log.d(LOG_TAG, "Session recording enabled, waiting layout to get attached.");
+            Log.d(LOG_TAG, "Session recording enabled; applying session sampling.");
             middlewareScreenshotManager = new MiddlewareScreenshotManager(builder, lifecycleManager);
-            middlewareScreenshotManager.start(System.currentTimeMillis());
+            syncSessionRecordingWithSampler();
+            startRecordingSessionWatcher(builder, lifecycleManager);
         }
         Log.i(LOG_TAG, "Middleware RUM monitoring initialized with session ID: " + INSTANCE.getRumSessionId());
         return INSTANCE;
+    }
+
+    /**
+     * Probe {@link io.opentelemetry.android.SessionIdRatioBasedSampler} via a span and start/stop
+     * session recording to match the sampling decision for the current session.
+     */
+    private static void syncSessionRecordingWithSampler() {
+        if (INSTANCE == null || middlewareScreenshotManager == null) {
+            return;
+        }
+        Span probe = INSTANCE.getOpenTelemetry()
+                .getTracer(RUM_TRACER_NAME)
+                .spanBuilder("record init")
+                .startSpan();
+        boolean shouldRecord = probe.isRecording();
+        probe.end();
+
+        if (shouldRecord) {
+            if (!middlewareScreenshotManager.isRunning()) {
+                Log.d(LOG_TAG, "Session sampled – starting session recording.");
+                middlewareScreenshotManager.start(System.currentTimeMillis());
+            }
+        } else if (middlewareScreenshotManager.isRunning()) {
+            Log.d(LOG_TAG, "Session not sampled – stopping session recording.");
+            middlewareScreenshotManager.stop();
+        }
+    }
+
+    /**
+     * OpenTelemetry Android does not expose session observers publicly; poll for session id
+     * changes so recording can follow session sampling across rotations.
+     */
+    private static void startRecordingSessionWatcher(
+            MiddlewareBuilder builder, LifecycleManager lifecycleManager) {
+        if (recordingSessionWatcher != null) {
+            return;
+        }
+        final AtomicReference<String> lastSessionId =
+                new AtomicReference<>(INSTANCE != null ? INSTANCE.getRumSessionId() : "");
+        recordingSessionWatcher = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "mw-recording-session-watch");
+            t.setDaemon(true);
+            return t;
+        });
+        recordingSessionWatcher.scheduleWithFixedDelay(() -> {
+            if (INSTANCE == null || !builder.isRecordingEnabled()) {
+                return;
+            }
+            String currentSessionId = INSTANCE.getRumSessionId();
+            String previous = lastSessionId.getAndSet(currentSessionId);
+            if (previous == null || previous.equals(currentSessionId)) {
+                return;
+            }
+            Log.d(LOG_TAG, "Session changed; re-evaluating recording sampling.");
+            if (middlewareScreenshotManager == null) {
+                middlewareScreenshotManager =
+                        new MiddlewareScreenshotManager(builder, lifecycleManager);
+            }
+            syncSessionRecordingWithSampler();
+        }, RECORDING_SESSION_WATCH_INTERVAL_SECONDS, RECORDING_SESSION_WATCH_INTERVAL_SECONDS,
+                TimeUnit.SECONDS);
     }
 
     /**

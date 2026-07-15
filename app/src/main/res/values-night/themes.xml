@@ -1,7 +1,12 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Base.Theme.Sample" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your dark theme here. -->
-        <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
+    <style name="Base.Theme.CoffeeCart" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/espresso_brown_light</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/caramel_accent</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="android:colorBackground">#1A1210</item>
+        <item name="colorSurface">#2C1F1B</item>
+        <item name="colorOnSurface">@color/cream</item>
+        <item name="colorError">@color/error_red</item>
     </style>
 </resources>

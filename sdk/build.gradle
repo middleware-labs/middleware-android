@@ -65,6 +65,12 @@ android {
         unitTests.returnDefaultValues = true
         unitTests.all {
             useJUnitPlatform()
+            // Forward bench output dir into Robolectric JVM
+            def out = System.getenv("MW_BENCH_OUT")
+            if (out != null && !out.isEmpty()) {
+                environment "MW_BENCH_OUT", out
+            }
+            systemProperty "mw.bench.out", (out ?: "${project.buildDir}/mw-bench")
         }
     }
 }
@@ -76,6 +82,8 @@ dependencies {
         exclude group: 'io.opentelemetry.contrib', module: 'opentelemetry-disk-buffering'
     }
     implementation 'io.opentelemetry.android:common:0.10.0-alpha'
+    // Compile-time access to SessionProvider (runtime-only transitive from core).
+    implementation 'io.opentelemetry.android:session:0.10.0-alpha'
     implementation 'io.opentelemetry.contrib:opentelemetry-disk-buffering:1.31.0-alpha'
     implementation('io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:2.14.0')
     implementation('io.opentelemetry:opentelemetry-exporter-otlp:1.48.0')

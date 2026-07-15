@@ -1,11 +1,94 @@
 <resources>
-    <string name="app_name">Middleware RUM</string>
-    <string name="make_http_call">MAKE HTTP CALL</string>
-    <string name="crash">CRASH</string>
-    <string name="webview">WEBVIEW</string>
-    <string name="worker">WORKER</string>
-    <string name="custom_rum_event">CUSTOM RUM EVENT</string>
-    <string name="application_not_responding">APPLICATION NOT RESPONDING</string>
-    <string name="force_new_session">FORCE NEW SESSION</string>
+    <string name="app_name">Coffee Cart</string>
+
+    <!-- Navigation tabs -->
+    <string name="nav_menu">Menu</string>
+    <string name="nav_cart">Cart</string>
+    <string name="nav_account">Account</string>
+
+    <!-- Menu screen -->
+    <string name="menu_title">Our Menu</string>
+    <string name="menu_loading">Brewing up our menu\u2026</string>
+    <string name="menu_empty">No drinks available right now.</string>
+    <string name="add_to_cart">Add to Cart</string>
+
+    <!-- Product detail -->
+    <string name="product_detail_title">Details</string>
+    <string name="quantity_label">Qty</string>
+    <string name="add_to_cart_btn">Add to Cart</string>
+
+    <!-- Cart screen -->
+    <string name="cart_title">Your Cart</string>
+    <string name="cart_empty">Your cart is empty.\nGo pick your favourite brew! \u2615</string>
+    <string name="cart_total">Total</string>
+    <string name="proceed_checkout">Proceed to Checkout</string>
+    <string name="remove_item">Remove</string>
+
+    <!-- Checkout screen -->
+    <string name="checkout_title">Checkout</string>
+    <string name="hint_full_name">Full Name</string>
+    <string name="hint_email">Email</string>
+    <string name="hint_address">Delivery Address</string>
+    <string name="hint_card_number">Card Number</string>
+    <string name="hint_expiry">Expiry (MM/YY)</string>
+    <string name="hint_cvv">CVV</string>
+    <string name="place_order">Place Order</string>
+    <string name="payment_section">Payment Details</string>
+    <string name="delivery_section">Delivery Details</string>
+    <string name="order_total_label">Order Total:</string>
+    <string name="checkout_error_name">Please enter your name</string>
+    <string name="checkout_error_email">Please enter a valid email</string>
+    <string name="checkout_error_address">Please enter a delivery address</string>
+    <string name="checkout_error_card">Please enter a valid 16-digit card number</string>
+    <string name="checkout_error_cvv">Please enter a valid CVV (3-4 digits)</string>
+    <string name="checkout_error_expiry">Please enter expiry date</string>
+    <string name="payment_declined">Payment declined. Try card: 4111 1111 1111 1111</string>
+    <string name="placing_order">Placing your order\u2026</string>
+
+    <!-- Order confirmation -->
+    <string name="order_confirmed_title">Order Confirmed!</string>
+    <string name="order_id_prefix">Order #</string>
+    <string name="order_thank_you">Thank you for your order.\nYour coffee is on its way! \u2615</string>
+    <string name="back_to_menu">Back to Menu</string>
+
+    <string name="hint_username">Username</string>
+    <string name="login_subtitle">Sign in to start ordering</string>
+    <string name="login_continue">Continue</string>
+    <string name="login_error_username">Please enter a username</string>
+    <string name="login_welcome">Welcome, %1$s</string>
+    <string name="signed_in_as">Signed in as %1$s</string>
+    <string name="sign_out">Sign Out</string>
+
+    <!-- Account screen -->
+    <string name="account_title">Account</string>
+    <string name="hint_customer_name">Your Name</string>
+    <string name="hint_customer_email">Email Address</string>
+    <string name="save_profile">Save Profile</string>
+    <string name="help_faq">Help &amp; FAQ</string>
+    <string name="rum_lab">RUM Lab \uD83E\uDDEA</string>
+    <string name="profile_saved">Profile saved \u2714</string>
+    <string name="app_version_label">App Version: </string>
+    <string name="session_id_label">Session ID: </string>
+
+    <!-- RUM Lab screen -->
+    <string name="rum_lab_title">RUM Lab</string>
+    <string name="make_http_call">Make HTTP Call</string>
+    <string name="crash">Trigger Crash</string>
+    <string name="webview">Open WebView</string>
+    <string name="worker">Run Background Worker</string>
+    <string name="custom_rum_event">Custom RUM Event</string>
+    <string name="application_not_responding">Simulate ANR</string>
+    <string name="force_new_session">Force New Session</string>
     <string name="trigger_obfuscated_crash">Trigger Obfuscated Crash</string>
+    <string name="add_custom_exception">Add Custom Exception</string>
+
+    <!-- WebView -->
+    <string name="webview_title">Help &amp; FAQ</string>
+
+    <!-- Generic -->
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="error_generic">Something went wrong. Please try again.</string>
+    <string name="loading">Loading\u2026</string>
+    <string name="currency_symbol">$</string>
 </resources>

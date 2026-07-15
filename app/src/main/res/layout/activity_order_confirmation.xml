@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="32dp"
+    android:background="@color/cream">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="✅"
+        android:textSize="72sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/order_confirmed_title"
+        android:textColor="@color/espresso_brown"
+        android:textSize="28sp"
+        android:fontFamily="sans-serif-medium" />
+
+    <TextView
+        android:id="@+id/tv_order_id"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:textColor="@color/caramel_accent"
+        android:textSize="18sp"
+        android:fontFamily="sans-serif-medium" />
+
+    <View
+        android:layout_width="64dp"
+        android:layout_height="2dp"
+        android:layout_marginVertical="20dp"
+        android:background="@color/caramel_accent" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="@string/order_thank_you"
+        android:textColor="@color/espresso_brown_light"
+        android:textSize="16sp"
+        android:lineSpacingMultiplier="1.5" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_back_to_menu"
+        style="@style/Widget.CoffeeCart.Button.Primary"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:layout_marginTop="40dp"
+        android:text="@string/back_to_menu"
+        android:textSize="16sp"
+        app:cornerRadius="26dp" />
+
+</LinearLayout>

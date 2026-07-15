@@ -1,222 +1,126 @@
 package io.middleware.android.sample;
 
-import static io.opentelemetry.api.common.AttributeKey.stringKey;
-
-import android.annotation.SuppressLint;
 import android.content.Intent;
-import android.os.Build;
 import android.os.Bundle;
-import android.widget.Button;
-import android.widget.Toast;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.lifecycle.MutableLiveData;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
 
-import java.io.IOException;
-import java.util.Random;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
+import com.google.android.material.badge.BadgeDrawable;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 import io.middleware.android.sdk.Middleware;
-import io.opentelemetry.api.common.AttributeKey;
-import io.opentelemetry.api.common.Attributes;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.StatusCode;
-import io.opentelemetry.api.trace.TraceId;
-import io.opentelemetry.context.Scope;
-import okhttp3.Call;
-import okhttp3.Callback;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
-import okhttp3.ResponseBody;
 
-@RequiresApi(api = Build.VERSION_CODES.N)
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements CartManager.CartChangeListener {
 
-    private Call.Factory okHttpClient;
-    private final MutableLiveData<String> httpResponse = new MutableLiveData<>();
+    private static final String TAG_MENU = "tag_menu";
+    private static final String TAG_CART = "tag_cart";
+    private static final String TAG_ACCOUNT = "tag_account";
+
+    private BottomNavigationView bottomNav;
     private Middleware middleware;
-    int count = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-        middleware = Middleware.getInstance();
-        okHttpClient = buildOkHttpClient(middleware);
-        count = 0;
-        final Button httpButton = findViewById(R.id.http_button);
-        httpButton.setOnClickListener(v -> {
-            middleware.addEvent("click", Attributes.empty());
-            Span workflow = middleware.startWorkflow("MAKE HTTP CUSTOM CALL");
-            makeCall("https://dummyjson.com/products", workflow);
-            makeRawCall("https://dummyjson.com/products/1");
-            middleware.setGlobalAttribute(AttributeKey.longKey("customerId"), 123456L);
-            count++;
-            middleware.d("BUTTONS", "User tapped the HTTP Call Button " + count + " times");
-            Toast.makeText(getApplicationContext(), "HTTP CALL Successful", Toast.LENGTH_SHORT).show();
-        });
 
-        final Button newSession = findViewById(R.id.force_new_session);
-        newSession.setOnClickListener(v -> {
-            createSession();
-        });
-
-        middleware.addSanitizedElement(httpButton);
-
-        final Button crashButton = findViewById(R.id.crash_button);
-        crashButton.setOnClickListener(v -> {
-            middleware.d("BUTTON", "CLICKED : CRASH BUTTON");
-            middleware.addEvent("click", Attributes.empty());
-            Span workflow = middleware.startWorkflow("Crash Workflow");
-            crashFlowTrigger(workflow);
-            middleware.setGlobalAttribute(stringKey("crashId"), String.valueOf(Math.random()));
-        });
-
-        final Button webView = findViewById(R.id.web_view_button);
-        webView.setOnClickListener(v -> {
-            middleware.d("BUTTON", "CLICKED: WEBVIEW BUTTON");
-            middleware.addEvent("click", Attributes.empty());
-            Intent i = new Intent(this, WebViewActivity.class);
-            startActivity(i);
-            Toast.makeText(getApplicationContext(), "Moved to WebView Activity", Toast.LENGTH_SHORT).show();
-        });
-
-        final Button workerButton = findViewById(R.id.worker_button);
-        workerButton.setOnClickListener(v -> {
-            middleware.d("BUTTON", "CLICKED: WORKER BUTTON");
-            middleware.addEvent("click", Attributes.empty());
-            SampleWorkerManager.startWorker(this.getApplicationContext());
-            Toast.makeText(getApplicationContext(), "Worker Execution Completed", Toast.LENGTH_SHORT).show();
-        });
-
-        final Button customRumEvent = findViewById(R.id.custom_event_button);
-        customRumEvent.setOnClickListener(v -> {
-            middleware.d("BUTTON", "CLICKED: CUSTOM RUM EVENT");
-            middleware.addEvent("rum_event", Attributes.of(stringKey("message"), "My First RUM EVENT"));
-            Toast.makeText(getApplicationContext(), "Your Rum Event Successfully sent", Toast.LENGTH_SHORT).show();
-        });
-
-        final Button anrButton = findViewById(R.id.anr_button);
-        anrButton.setOnClickListener(v -> {
-            final Span appFreezing = middleware.startWorkflow("App Freezing");
-            for (int i = 1; i <= 25; i++) {
-                try {
-                    Thread.sleep(1000);
-                    appFreezing.addEvent("Sleeping Count: " + i);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                } finally {
-                    appFreezing.end();
-                }
-            }
-        });
-
-        findViewById(R.id.btn_trigger_crash).setOnClickListener(view -> {
-            new CrashHelper().executeRiskOperation();
-        });
-    }
-
-    private void createSession() {
-        Random random = new Random();
-        String newSessionId = TraceId.fromLongs(random.nextLong(), random.nextLong());
-        middleware.setNativeSession(newSessionId, String.valueOf(System.currentTimeMillis()));
-        Toast.makeText(getApplicationContext(), "New Session: " + newSessionId, Toast.LENGTH_SHORT).show();
-    }
-
-    private void crashFlowTrigger(Span workflow) {
-        CountDownLatch latch = new CountDownLatch(1);
-        int numThreads = 4;
-        for (int i = 0; i < numThreads; ++i) {
-            Thread t =
-                    new Thread(
-                            () -> {
-                                try {
-                                    if (latch.await(10, TimeUnit.SECONDS)) {
-                                        workflow.end();
-                                        throw new IllegalStateException(
-                                                "Failure from thread "
-                                                        + Thread.currentThread().getName());
-                                    }
-                                } catch (InterruptedException e) {
-                                    throw new RuntimeException(e);
-                                }
-                            });
-            t.setName("crash-thread-" + i);
-            t.start();
-        }
-        try {
-            Thread.sleep(100);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+        // Require login before showing the shop
+        android.content.SharedPreferences prefs =
+                getSharedPreferences(LoginActivity.PREFS_NAME, MODE_PRIVATE);
+        if (!prefs.getBoolean(LoginActivity.KEY_LOGGED_IN, false)
+                || prefs.getString(LoginActivity.KEY_USERNAME, "").isEmpty()) {
+            startActivity(new Intent(this, LoginActivity.class));
+            finish();
             return;
         }
-        latch.countDown();
+
+        String username = prefs.getString(LoginActivity.KEY_USERNAME, "");
+        setContentView(R.layout.activity_main);
+
+        middleware = Middleware.getInstance();
+        middleware.setGlobalAttribute(
+                io.opentelemetry.api.common.AttributeKey.stringKey("username"), username);
+        middleware.i("APP", "Main shop opened for user " + username);
+
+        bottomNav = findViewById(R.id.bottom_navigation);
+
+        if (savedInstanceState == null) {
+            showFragment(TAG_MENU);
+        }
+
+        bottomNav.setOnItemSelectedListener(item -> {
+            int id = item.getItemId();
+            if (id == R.id.nav_menu) {
+                showFragment(TAG_MENU);
+                return true;
+            } else if (id == R.id.nav_cart) {
+                showFragment(TAG_CART);
+                return true;
+            } else if (id == R.id.nav_account) {
+                showFragment(TAG_ACCOUNT);
+                return true;
+            }
+            return false;
+        });
+
+        CartManager.getInstance().addListener(this);
+        updateCartBadge();
     }
 
-    @SuppressLint("AllowAllHostnameVerifier")
-    private Call.Factory buildOkHttpClient(Middleware middlewareRum) {
-        // grab the default executor service that okhttp uses, and wrap it with one that will
-        // propagate the otel context.
-        OkHttpClient.Builder builder = new OkHttpClient.Builder();
-
-        // NOTE: This is really bad and dangerous. Don't ever do this in the real world.
-        // it's only necessary because the demo endpoint uses a self-signed SSL cert.
-        return middlewareRum.createRumOkHttpCallFactory(
-                builder.build());
-
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        CartManager.getInstance().removeListener(this);
     }
 
-    private void makeCall(String url, Span workflow) {
-        // make sure the span is in the current context so it can be propagated into the async call.
-        try (Scope scope = workflow.makeCurrent()) {
-            Call call = okHttpClient.newCall(new Request.Builder().url(url).get().build());
-            middleware.d("HTTP", "HTTP CALL STARTED " + url);
-            middleware.d("HTTP", "HEADERS : " + call.request().headers().toString());
-            call.enqueue(
-                    new Callback() {
-                        @Override
-                        public void onFailure(@NonNull Call call, @NonNull IOException e) {
-                            httpResponse.postValue("error");
-                            workflow.setStatus(StatusCode.ERROR, "failure to communicate");
-                            workflow.end();
-                        }
+    @Override
+    public void onCartChanged() {
+        updateCartBadge();
+    }
 
-                        @Override
-                        public void onResponse(@NonNull Call call, @NonNull Response response) {
-                            try (ResponseBody body = response.body()) {
-                                int responseCode = response.code();
-                                httpResponse.postValue("" + responseCode);
-                                workflow.end();
-                            }
-                        }
-                    });
+    private void updateCartBadge() {
+        int count = CartManager.getInstance().getTotalItemCount();
+        BadgeDrawable badge = bottomNav.getOrCreateBadge(R.id.nav_cart);
+        if (count > 0) {
+            badge.setNumber(count);
+            badge.setVisible(true);
+            badge.setBackgroundColor(getResources().getColor(R.color.caramel_accent, getTheme()));
+        } else {
+            badge.setVisible(false);
         }
     }
 
-    private void makeRawCall(String url) {
-        Call call = okHttpClient.newCall(new Request.Builder().url(url).get().build());
-        middleware.d("HTTP", "HTTP CALL STARTED " + url);
-        middleware.d("HTTP", "HEADERS : " + call.request().headers().toString());
-        call.enqueue(
-                new Callback() {
-                    @Override
-                    public void onFailure(@NonNull Call call, @NonNull IOException e) {
-                        httpResponse.postValue("error");
-                    }
+    private void showFragment(String tag) {
+        FragmentManager fm = getSupportFragmentManager();
+        FragmentTransaction ft = fm.beginTransaction();
 
-                    @Override
-                    public void onResponse(@NonNull Call call, @NonNull Response response) {
-                        try (ResponseBody body = response.body()) {
-                            int responseCode = response.code();
-                            middleware.d("Response", body.toString());
-                            httpResponse.postValue("" + responseCode);
-                        }
-                    }
-                });
+        Fragment menuFrag = fm.findFragmentByTag(TAG_MENU);
+        Fragment cartFrag = fm.findFragmentByTag(TAG_CART);
+        Fragment accountFrag = fm.findFragmentByTag(TAG_ACCOUNT);
 
+        if (menuFrag != null) ft.hide(menuFrag);
+        if (cartFrag != null) ft.hide(cartFrag);
+        if (accountFrag != null) ft.hide(accountFrag);
+
+        Fragment target = fm.findFragmentByTag(tag);
+        if (target == null) {
+            target = createFragment(tag);
+            ft.add(R.id.fragment_container, target, tag);
+        } else {
+            ft.show(target);
+        }
+
+        ft.commit();
+        middleware.d("NAV", "Navigated to tab: " + tag);
+    }
+
+    private Fragment createFragment(String tag) {
+        switch (tag) {
+            case TAG_CART:    return new CartFragment();
+            case TAG_ACCOUNT: return new AccountFragment();
+            default:          return new MenuFragment();
+        }
     }
 }

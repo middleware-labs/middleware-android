@@ -27,6 +27,7 @@ import android.os.Looper;
 import com.google.gson.Gson;
 
 import java.time.Duration;
+import java.util.concurrent.atomic.AtomicReference;
 
 import io.middleware.android.sdk.builders.MiddlewareBuilder;
 import io.middleware.android.sdk.core.instrumentations.crash.CrashAttributesExtractor;
@@ -39,10 +40,12 @@ import io.opentelemetry.android.BuildConfig;
 import io.opentelemetry.android.GlobalAttributesSpanAppender;
 import io.opentelemetry.android.OpenTelemetryRum;
 import io.opentelemetry.android.OpenTelemetryRumBuilder;
+import io.opentelemetry.android.SessionIdRatioBasedSampler;
 import io.opentelemetry.android.config.OtelRumConfig;
 import io.opentelemetry.android.instrumentation.anr.AnrInstrumentation;
 import io.opentelemetry.android.instrumentation.network.NetworkChangeInstrumentation;
 import io.opentelemetry.android.instrumentation.slowrendering.SlowRenderingInstrumentation;
+import io.opentelemetry.android.session.SessionProvider;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.context.propagation.TextMapPropagator;
 import io.opentelemetry.exporter.logging.LoggingSpanExporter;
@@ -55,6 +58,8 @@ import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 
 public class RumSetup implements IRumSetup {
+    private static final String INVALID_SESSION_ID = "00000000000000000000000000000000";
+
     private final OpenTelemetryRumBuilder openTelemetryRumBuilder;
     private Resource resource;
     private MiddlewareSpanExporter middlewareSpanExporter;
@@ -62,6 +67,17 @@ public class RumSetup implements IRumSetup {
     private MiddlewareMetricsExporter middlewareMetricsExporter;
     private String resourceAttributes;
     private final MiddlewareBuilder builder;
+    /**
+     * Bound to {@link OpenTelemetryRum#getRumSessionId()} after {@link #build()} so
+     * {@link SessionIdRatioBasedSampler} can read the active session during sampling.
+     */
+    private final AtomicReference<SessionProvider> sessionProviderRef =
+            new AtomicReference<>(new SessionProvider() {
+                @Override
+                public String getSessionId() {
+                    return INVALID_SESSION_ID;
+                }
+            });
 
     public RumSetup(Application application, MiddlewareBuilder builder) {
         this.builder = builder;
@@ -74,6 +90,19 @@ public class RumSetup implements IRumSetup {
         otelRumConfig.setSessionTimeout(Duration.ofMinutes(5));
         openTelemetryRumBuilder = OpenTelemetryRum.builder(application, otelRumConfig);
         openTelemetryRumBuilder.mergeResource(resource);
+    }
+
+    /**
+     * Point the session sampler at the live RUM session id. Must be called immediately after
+     * {@link #build()} and before any spans are started.
+     */
+    public void bindSessionProvider(OpenTelemetryRum openTelemetryRum) {
+        sessionProviderRef.set(new SessionProvider() {
+            @Override
+            public String getSessionId() {
+                return openTelemetryRum.getRumSessionId();
+            }
+        });
     }
 
     @Override
@@ -90,6 +119,15 @@ public class RumSetup implements IRumSetup {
                         .build()
         );
         openTelemetryRumBuilder.addTracerProviderCustomizer((sdkTracerProviderBuilder, application1) -> {
+            sdkTracerProviderBuilder.setSampler(
+                    new SessionIdRatioBasedSampler(
+                            builder.sessionSamplingRatio,
+                            new SessionProvider() {
+                                @Override
+                                public String getSessionId() {
+                                    return sessionProviderRef.get().getSessionId();
+                                }
+                            }));
             sdkTracerProviderBuilder.addResource(resource);
             sdkTracerProviderBuilder.addSpanProcessor(
                     BatchSpanProcessor
