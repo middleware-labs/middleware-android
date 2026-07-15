@@ -31,12 +31,51 @@
 
 ## Benchmarks
 
-Session recording overhead and production-readiness gates live in the shared harness:
+Session-recording compress / tar.gz matrix via `RecordingBench` (Robolectric; frequency × quality). As of **2026-07-15**. Production flush size is **10 frames per tar.gz**.
 
-See [`../rum-benchmarks`](../rum-benchmarks) (`npm run bench:android` / `npm run gate:android`).
-Uses `RecordingBench` — Frequency × Quality compress + tar.gz matrix (Robolectric).
+### Production-readiness gate
 
-**FAQ (bundle size & session bandwidth):** [`../rum-benchmarks/docs/FAQ.md`](../rum-benchmarks/docs/FAQ.md).
+| Metric | Threshold |
+|---|---|
+| Upload | ≤ 4 MB/min |
+| Avg capture | ≤ 100 ms |
+
+### Compress / tar.gz matrix
+
+| Scenario | Baseline | Avg capture (ms) | tar.gz (bytes) | Frames/tar | Tars/min | MB/min | 1h bytes | 4h tars | Ready |
+|---|---|---|---|---|---|---|---|---|---|
+| idle_recording_off_proxy | recording_off | 14.2 | 2502 | 10 | 6 | 0.014 | 880804 | 1440 | yes |
+| idle_recording_on_low | recording_on | 4.9 | 2510 | 10 | 6 | 0.014 | 880804 | 1440 | yes |
+| scroll_recording_on_standard | recording_on | 4.3 | 2742 | 10 | 18.182 | 0.048 | 3019899 | 4364 | yes |
+| stress_recording_on_high | recording_on | 4.1 | 3266 | 10 | 60 | 0.187 | 11765023 | 14400 | yes |
+
+### Measured tar.gz size (recording on)
+
+| Workload | Frames / tar | Avg frame | JPEG bytes in tar | tar.gz (upload) | Frames / min | Tars / min |
+|---|---:|---:|---:|---:|---:|---:|
+| Default LOW × LOW | 10 | 9191 B (9.0 KB) | 89.8 KB | **2510 B (2.5 KB)** | 60 | **6** |
+| STANDARD × MEDIUM | 10 | 10608 B (10.4 KB) | 103.6 KB | **2742 B (2.7 KB)** | 181.8 | **18.182** |
+| HIGH × HIGH (stress) | 10 | 12635 B (12.3 KB) | 123.4 KB | **3266 B (3.2 KB)** | 600 | **60** |
+
+### Measured upload rates (recording on)
+
+| Workload | Bytes / min | MB / min |
+|---|---:|---:|
+| Default LOW × LOW | 14680 B (14.3 KB) | 0.014 |
+| STANDARD × MEDIUM | 50332 B (49.2 KB) | 0.048 |
+| HIGH × HIGH (stress) | 196084 B (191.5 KB) | 0.187 |
+
+### Projected session upload (recording on)
+
+Each cell is **tar upload count · total size**.
+
+| Workload | tar.gz each | 5 min | 15 min | 30 min | 1 hour | 2 hours | 4 hours |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Default LOW × LOW | 2.5 KB | 30 × 2.5 KB = 73.5 KB | 90 × 2.5 KB = 220.6 KB | 180 × 2.5 KB = 441.2 KB | 360 × 2.5 KB = 882.4 KB | 720 × 2.5 KB = 1.72 MB | 1440 × 2.5 KB = 3.45 MB |
+| STANDARD × MEDIUM | 2.7 KB | 91 × 2.7 KB = 243.7 KB | 273 × 2.7 KB = 731.0 KB | 545 × 2.7 KB = 1.43 MB | 1091 × 2.7 KB = 2.85 MB | 2182 × 2.7 KB = 5.71 MB | 4364 × 2.7 KB = 11.41 MB |
+| HIGH × HIGH (stress) | 3.2 KB | 300 × 3.2 KB = 956.8 KB | 900 × 3.2 KB = 2.80 MB | 1800 × 3.2 KB = 5.61 MB | 3600 × 3.2 KB = 11.21 MB | 7200 × 3.2 KB = 22.43 MB | 14400 × 3.2 KB = 44.85 MB |
+
+**Planning:** default LOW×LOW ≈ 860 KB/hour (360 uploads); 4 hours ≈ 3.4 MB (1440 uploads). Real apps vary with UI density and network conditions.
 
 ## Requirements
 
