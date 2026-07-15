@@ -24,7 +24,8 @@ jobs:
         uses: gradle/actions/setup-gradle@v5
       - name: Build with Gradle
         # Skip mapping upload — MW_API_KEY is not available in PR CI.
-        run: ./gradlew build -x uploadMiddlewareMappingDebug -x uploadMiddlewareMappingRelease
+        # Only debug has minifyEnabled, so only that upload task exists.
+        run: ./gradlew build -x uploadMiddlewareMappingDebug
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3.1.4
