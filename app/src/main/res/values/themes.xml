@@ -1,9 +1,45 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Base.Theme.Sample" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-         <item name="colorPrimary">@color/red</item>
+    <style name="Base.Theme.CoffeeCart" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/espresso_brown</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorPrimaryContainer">@color/espresso_brown_light</item>
+        <item name="colorOnPrimaryContainer">@color/cream</item>
+        <item name="colorSecondary">@color/caramel_accent</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="colorSecondaryContainer">@color/cream_dark</item>
+        <item name="colorOnSecondaryContainer">@color/espresso_brown</item>
+        <item name="android:colorBackground">@color/cream</item>
+        <item name="colorSurface">@color/white</item>
+        <item name="colorOnSurface">@color/espresso_brown</item>
+        <item name="colorError">@color/error_red</item>
     </style>
 
-    <style name="Theme.Sample" parent="Base.Theme.Sample" />
+    <style name="Theme.CoffeeCart" parent="Base.Theme.CoffeeCart" />
+
+    <style name="CoffeeToolbar" parent="Widget.MaterialComponents.Toolbar.Primary">
+        <item name="android:background">@color/espresso_brown</item>
+        <item name="titleTextColor">@color/white</item>
+        <item name="subtitleTextColor">@color/cream_dark</item>
+    </style>
+
+    <style name="Widget.CoffeeCart.Button.Primary" parent="Widget.MaterialComponents.Button">
+        <item name="backgroundTint">@color/caramel_accent</item>
+        <item name="android:textColor">@color/white</item>
+        <item name="cornerRadius">8dp</item>
+    </style>
+
+    <style name="Widget.CoffeeCart.Button.Outlined" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="strokeColor">@color/caramel_accent</item>
+        <item name="android:textColor">@color/caramel_accent</item>
+    </style>
+
+    <style name="Widget.CoffeeCart.Button.Text" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="android:textColor">@color/caramel_accent</item>
+    </style>
+
+    <style name="CoffeeCart.TextInputLayout" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+        <item name="boxStrokeColor">@color/caramel_accent</item>
+        <item name="hintTextColor">@color/espresso_brown_light</item>
+        <item name="android:textColorHint">@color/text_hint</item>
+    </style>
 </resources>

@@ -30,6 +30,10 @@ public final class MiddlewareBuilder {
     public Attributes globalAttributes = Attributes.empty();
     @Nullable
     public String deploymentEnvironment;
+    /**
+     * Fraction of sessions to sample for traces and session recordings. Default {@code 1.0}.
+     */
+    public double sessionSamplingRatio = 1.0;
     public RecordingOptions recordingOptions = new RecordingOptions.Builder()
             .setFrequency(RecordingFrequency.LOW)
             .setQuality(RecordingQuality.LOW)
@@ -195,6 +199,24 @@ public final class MiddlewareBuilder {
      */
     public MiddlewareBuilder setDeploymentEnvironment(String environment) {
         this.deploymentEnvironment = environment;
+        return this;
+    }
+
+    /**
+     * Sets the session sampling ratio used by {@link io.opentelemetry.android.SessionIdRatioBasedSampler}
+     * for traces and session recordings. Must be in {@code [0.0, 1.0]}.
+     *
+     * @param ratio fraction of sessions to keep
+     * @return {@code this}
+     */
+    public MiddlewareBuilder setSessionSamplingRatio(double ratio) {
+        if (ratio < 0.0) {
+            this.sessionSamplingRatio = 0.0;
+        } else if (ratio > 1.0) {
+            this.sessionSamplingRatio = 1.0;
+        } else {
+            this.sessionSamplingRatio = ratio;
+        }
         return this;
     }
 

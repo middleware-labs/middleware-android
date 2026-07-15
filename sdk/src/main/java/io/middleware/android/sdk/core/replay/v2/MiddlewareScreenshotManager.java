@@ -195,6 +195,10 @@ public class MiddlewareScreenshotManager {
                 intervalMillis, intervalMillis, TimeUnit.MILLISECONDS);
     }
 
+    public boolean isRunning() {
+        return scheduler != null && !scheduler.isShutdown();
+    }
+
     public void stop() {
         // Signal ALL threads (main, scheduler, IO) that we are stopping.
         // Must be set BEFORE shutting down executors so that any PixelCopy callback

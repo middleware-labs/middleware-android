@@ -29,6 +29,15 @@
 - Crash Reporting
 - Android Activity & Fragment lifecycle events
 
+## Benchmarks
+
+Session recording overhead and production-readiness gates live in the shared harness:
+
+See [`../rum-benchmarks`](../rum-benchmarks) (`npm run bench:android` / `npm run gate:android`).
+Uses `RecordingBench` — Frequency × Quality compress + tar.gz matrix (Robolectric).
+
+**FAQ (bundle size & session bandwidth):** [`../rum-benchmarks/docs/FAQ.md`](../rum-benchmarks/docs/FAQ.md).
+
 ## Requirements
 
 - Android Minimum SDK Version : 21
@@ -258,3 +267,56 @@ To blur sensitive information in session recording use the following method :
     final TextView someTextView = findViewById(R.id.some_text_view;
     instance.addSanitizedElement(someTextView);
 ```
+
+## Coffee Cart Sample App
+
+The `:app` module is a full **Coffee Cart** ecommerce demo that exercises every Middleware Android RUM feature in a realistic coffee-ordering flow.
+
+### Screens
+
+| Screen | What the user does |
+|--------|-------------------|
+| **Menu** | Browse coffee products (API + local catalog), open details, add to cart |
+| **Product Detail** | Choose quantity, add to cart |
+| **Cart** | Update qty, remove items, checkout |
+| **Checkout** | Enter delivery + card details, place order |
+| **Order Confirmation** | See order id and return to menu |
+| **Account** | Save profile (`customerId` global attribute), open Help / RUM Lab |
+| **Help (WebView)** | FAQ page with browser RUM integration |
+| **RUM Lab** | Crash, ANR, custom event/exception, HTTP, worker, new session |
+
+### Run
+
+1. Put your Middleware credentials in `secrets.properties`:
+
+```properties
+TARGET="<your-target-url>"
+ACCESS_KEY="<your-rum-access-token>"
+```
+
+2. Open the project in Android Studio and run the `app` configuration (or `./gradlew :app:installDebug`).
+
+Service / project name sent to Middleware: `CoffeeCart-Android`.
+
+### RUM feature → screen map
+
+| Feature | Where it is exercised |
+|---------|------------------------|
+| OkHttp network monitoring (`createRumOkHttpCallFactory`) | Menu product fetch, Checkout order POST, Rum Lab HTTP |
+| Crash reporting | Rum Lab (crash + obfuscated crash) |
+| Activity / Fragment lifecycle | All screens (automatic) |
+| Slow / freeze render detection | Enabled in `CoffeeCartApplication`; product list scroll |
+| Custom events (`addEvent`) | Add to cart, product viewed, checkout, profile saved, Rum Lab |
+| Workflows (`startWorkflow`) | Browse Menu, Checkout Flow, Rum Lab flows |
+| Custom exceptions (`addException`) | Network/payment failures; test card ending in `0002`; Rum Lab |
+| Custom logs (`d` / `i` / `e` / `w`) | Throughout the shop flow |
+| Session recording + sanitization | Card number & CVV on Checkout (`addSanitizedElement`) |
+| Global attributes | App version on init; `customerId` from Account |
+| WebView browser RUM | Account → Help |
+| ANR detection | Rum Lab Simulate ANR |
+| Network change detection | Enabled by default in builder |
+| Background worker | Rum Lab |
+
+### Tip
+
+Use any card ending in `0002` on Checkout to trigger a declined-payment exception path.
