@@ -164,6 +164,20 @@ public final class MiddlewareBuilder {
     }
 
     /**
+     * Enables v3 session recording: rrweb-compatible screenshot events sent through the
+     * metrics endpoint, replayed with the standard web session-replay player. When enabled,
+     * the {@code recordingV3} resource attribute is set and the legacy (v2) screenshot
+     * recorder does not run. Has no effect if session recording is disabled via
+     * {@link #disableSessionRecording()}.
+     *
+     * @return {@code this}
+     */
+    public MiddlewareBuilder disableSessionRecordingV3() {
+        configFlags.disableSessionRecordingV3();
+        return this;
+    }
+
+    /**
      * Configures the rate at which frame render durations are polled.
      *
      * @param interval The period that should be used for polling.
@@ -263,6 +277,10 @@ public final class MiddlewareBuilder {
 
     public boolean isRecordingEnabled() {
         return configFlags.isRecordingEnabled();
+    }
+
+    public boolean isRecordingV3Enabled() {
+        return configFlags.isRecordingEnabled() && configFlags.isRecordingV3Enabled();
     }
 
     public ConfigFlags getConfigFlags() {

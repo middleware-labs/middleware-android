@@ -278,6 +278,7 @@ public class RumSetup implements IRumSetup {
         resourceBuilder.removeIf(attributeKey -> attributeKey.equals(stringKey("os.name")));
         resourceBuilder.put("os", "Android");
         resourceBuilder.put("recording", builder.isRecordingEnabled() ? "1" : "0");
+        resourceBuilder.put("recordingV3", builder.isRecordingV3Enabled() ? "1" : "0");
         resourceBuilder.put("browser.trace", "true");
         resourceBuilder.put(RUM_SDK_VERSION, BuildConfig.OTEL_ANDROID_VERSION);
         resourceBuilder.put(DEVICE_MODEL_NAME, Build.MODEL);
