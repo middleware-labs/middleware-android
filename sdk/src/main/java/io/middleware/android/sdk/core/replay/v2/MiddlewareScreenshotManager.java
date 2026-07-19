@@ -41,8 +41,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import io.middleware.android.sdk.Middleware;
 import io.middleware.android.sdk.builders.MiddlewareBuilder;
+import io.middleware.android.sdk.core.replay.SessionRecorder;
 
-public class MiddlewareScreenshotManager {
+public class MiddlewareScreenshotManager implements SessionRecorder {
 
     // -------------------------------------------------------------------------
     // Configuration

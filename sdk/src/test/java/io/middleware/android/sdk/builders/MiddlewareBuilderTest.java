@@ -87,4 +87,25 @@ class MiddlewareBuilderTest {
                 .disableCrashReporting();
         assertFalse(middlewareBuilder.isCrashReportingEnabled());
     }
+
+    @Test
+    void recordingV3IsEnabledByDefault() {
+        assertTrue(Middleware.builder().isRecordingV3Enabled());
+    }
+
+    @Test
+    void shouldEnableSessionRecordingAlsoEnablesV3() {
+        MiddlewareBuilder middlewareBuilder = Middleware.builder();
+        assertTrue(middlewareBuilder.isRecordingV3Enabled());
+        assertTrue(middlewareBuilder.isRecordingEnabled());
+    }
+
+    @Test
+    void shouldDisableSessionRecordingAlsoDisablesV3() {
+        MiddlewareBuilder middlewareBuilder = Middleware.builder()
+                .disableSessionRecordingV3()
+                .disableSessionRecording();
+        assertFalse(middlewareBuilder.isRecordingV3Enabled());
+        assertFalse(middlewareBuilder.isRecordingEnabled());
+    }
 }

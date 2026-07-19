@@ -37,8 +37,10 @@ import io.middleware.android.sdk.core.RumSetup;
 import io.middleware.android.sdk.core.models.NativeRumSessionId;
 import io.middleware.android.sdk.core.replay.MiddlewareRecorder;
 import io.middleware.android.sdk.core.replay.ReplayRecording;
+import io.middleware.android.sdk.core.replay.SessionRecorder;
 import io.middleware.android.sdk.core.replay.v2.LifecycleManager;
 import io.middleware.android.sdk.core.replay.v2.MiddlewareScreenshotManager;
+import io.middleware.android.sdk.core.replay.v3.ReplayV3Factory;
 import io.middleware.android.sdk.extractors.RumResponseAttributesExtractor;
 import io.middleware.android.sdk.interfaces.IMiddleware;
 import io.middleware.android.sdk.utils.ServerTimingHeaderParser;
@@ -71,7 +73,7 @@ public class Middleware implements IMiddleware {
     @Nullable
     private static Middleware INSTANCE;
     private static Logger LOGGER;
-    private static MiddlewareScreenshotManager middlewareScreenshotManager;
+    private static SessionRecorder sessionRecorder;
     @Nullable
     private static ScheduledExecutorService recordingSessionWatcher;
     private final OpenTelemetryRum openTelemetryRum;
@@ -120,12 +122,27 @@ public class Middleware implements IMiddleware {
                 .build();
         if (builder.isRecordingEnabled()) {
             Log.d(LOG_TAG, "Session recording enabled; applying session sampling.");
-            middlewareScreenshotManager = new MiddlewareScreenshotManager(builder, lifecycleManager);
+            sessionRecorder = createSessionRecorder(builder, lifecycleManager, context);
             syncSessionRecordingWithSampler();
-            startRecordingSessionWatcher(builder, lifecycleManager);
+            startRecordingSessionWatcher(builder, lifecycleManager, context);
         }
         Log.i(LOG_TAG, "Middleware RUM monitoring initialized with session ID: " + INSTANCE.getRumSessionId());
         return INSTANCE;
+    }
+
+    /**
+     * Selects the recorder implementation: v3 (rrweb events through the metrics
+     * endpoint) when enabled on the builder, otherwise the v2 screenshot recorder.
+     */
+    private static SessionRecorder createSessionRecorder(
+            MiddlewareBuilder builder, LifecycleManager lifecycleManager, Context context) {
+        if (builder.isRecordingV3Enabled()) {
+            return ReplayV3Factory.create(
+                    (android.app.Application) context.getApplicationContext(),
+                    builder,
+                    lifecycleManager);
+        }
+        return new MiddlewareScreenshotManager(builder, lifecycleManager);
     }
 
     /**
@@ -133,7 +150,7 @@ public class Middleware implements IMiddleware {
      * session recording to match the sampling decision for the current session.
      */
     private static void syncSessionRecordingWithSampler() {
-        if (INSTANCE == null || middlewareScreenshotManager == null) {
+        if (INSTANCE == null || sessionRecorder == null) {
             return;
         }
         Span probe = INSTANCE.getOpenTelemetry()
@@ -144,13 +161,13 @@ public class Middleware implements IMiddleware {
         probe.end();
 
         if (shouldRecord) {
-            if (!middlewareScreenshotManager.isRunning()) {
+            if (!sessionRecorder.isRunning()) {
                 Log.d(LOG_TAG, "Session sampled – starting session recording.");
-                middlewareScreenshotManager.start(System.currentTimeMillis());
+                sessionRecorder.start(System.currentTimeMillis());
             }
-        } else if (middlewareScreenshotManager.isRunning()) {
+        } else if (sessionRecorder.isRunning()) {
             Log.d(LOG_TAG, "Session not sampled – stopping session recording.");
-            middlewareScreenshotManager.stop();
+            sessionRecorder.stop();
         }
     }
 
@@ -159,7 +176,7 @@ public class Middleware implements IMiddleware {
      * changes so recording can follow session sampling across rotations.
      */
     private static void startRecordingSessionWatcher(
-            MiddlewareBuilder builder, LifecycleManager lifecycleManager) {
+            MiddlewareBuilder builder, LifecycleManager lifecycleManager, Context context) {
         if (recordingSessionWatcher != null) {
             return;
         }
@@ -180,9 +197,8 @@ public class Middleware implements IMiddleware {
                 return;
             }
             Log.d(LOG_TAG, "Session changed; re-evaluating recording sampling.");
-            if (middlewareScreenshotManager == null) {
-                middlewareScreenshotManager =
-                        new MiddlewareScreenshotManager(builder, lifecycleManager);
+            if (sessionRecorder == null) {
+                sessionRecorder = createSessionRecorder(builder, lifecycleManager, context);
             }
             syncSessionRecordingWithSampler();
         }, RECORDING_SESSION_WATCH_INTERVAL_SECONDS, RECORDING_SESSION_WATCH_INTERVAL_SECONDS,
@@ -223,8 +239,8 @@ public class Middleware implements IMiddleware {
      * @return @{code true} if session recording stopped successfully.
      */
     public boolean stopRecording() {
-        if (middlewareScreenshotManager != null) {
-            middlewareScreenshotManager.stop();
+        if (sessionRecorder != null) {
+            sessionRecorder.stop();
             return true;
         }
         return false;
@@ -421,7 +437,9 @@ public class Middleware implements IMiddleware {
      * @param view
      */
     public void addSanitizedElement(View view) {
-        middlewareScreenshotManager.setViewForBlur(view);
+        if (sessionRecorder != null) {
+            sessionRecorder.setViewForBlur(view);
+        }
     }
 
     /**
@@ -431,7 +449,9 @@ public class Middleware implements IMiddleware {
      * @param view
      */
     public void removeSanitizedElement(View view) {
-        middlewareScreenshotManager.removeSanitizedElement(view);
+        if (sessionRecorder != null) {
+            sessionRecorder.removeSanitizedElement(view);
+        }
     }
 
     // for testing only

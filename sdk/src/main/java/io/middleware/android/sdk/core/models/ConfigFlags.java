@@ -11,6 +11,7 @@ public class ConfigFlags {
     private boolean anrDetectionEnabled = true;
     private boolean slowRenderingDetectionEnabled = true;
     private boolean recordingEnabled = true;
+    private boolean recordingV3Enabled = true;
 
     public void enableDebug() {
         debugEnabled = true;
@@ -44,12 +45,20 @@ public class ConfigFlags {
         recordingEnabled = false;
     }
 
+    public void disableSessionRecordingV3() {
+        recordingV3Enabled = false;
+    }
+
     public boolean isDebugEnabled() {
         return debugEnabled;
     }
 
     public boolean isRecordingEnabled() {
         return recordingEnabled;
+    }
+
+    public boolean isRecordingV3Enabled() {
+        return recordingV3Enabled;
     }
 
     public boolean isActivityLifecycleEnabled() {
@@ -96,6 +105,9 @@ public class ConfigFlags {
                 + ","
                 + "networkMonitor:"
                 + networkMonitorEnabled
+                + ","
+                + "recordingV3:"
+                + recordingV3Enabled
                 + "]";
     }
 }
