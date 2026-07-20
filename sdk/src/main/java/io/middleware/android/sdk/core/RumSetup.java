@@ -32,6 +32,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import io.middleware.android.sdk.builders.MiddlewareBuilder;
 import io.middleware.android.sdk.core.instrumentations.crash.CrashAttributesExtractor;
 import io.middleware.android.sdk.core.instrumentations.crash.CrashInstrumentation;
+import io.middleware.android.sdk.core.instrumentations.ui.UIInstrumentation;
 import io.middleware.android.sdk.exporters.MiddlewareLogsExporter;
 import io.middleware.android.sdk.exporters.MiddlewareMetricsExporter;
 import io.middleware.android.sdk.exporters.MiddlewareSpanExporter;
@@ -223,6 +224,11 @@ public class RumSetup implements IRumSetup {
         CrashInstrumentation crashReporterInstrumentation = new CrashInstrumentation();
         crashReporterInstrumentation.addAttributesExtractor(new CrashAttributesExtractor());
         openTelemetryRumBuilder.addInstrumentation(crashReporterInstrumentation);
+    }
+
+    @Override
+    public void setUIInstrumentation() {
+        openTelemetryRumBuilder.addInstrumentation(new UIInstrumentation());
     }
 
     @Override

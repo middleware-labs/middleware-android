@@ -108,6 +108,11 @@ public class RumInitializer implements IRum {
             rumSetup.setCrashReporter();
             initializerEvent.emit("crashReportingInitialized");
         }
+
+        if (builder.isUIInstrumentationEnabled()) {
+            rumSetup.setUIInstrumentation();
+            initializerEvent.emit("uiInstrumentationInitialized");
+        }
         final OpenTelemetryRum openTelemetryRum = rumSetup.build();
         rumSetup.bindSessionProvider(openTelemetryRum);
         initializerEvent.recordInitializationSpans(

@@ -178,6 +178,18 @@ public final class MiddlewareBuilder {
     }
 
     /**
+     * Disables automatic UI tap instrumentation. When enabled (the default), each user tap is
+     * captured and emitted as a {@code tap} RUM span (with dp coordinates and the tapped view's
+     * identity) so the backend can build a click heatmap for the app.
+     *
+     * @return {@code this}
+     */
+    public MiddlewareBuilder disableUIInstrumentation() {
+        configFlags.disableUIInstrumentation();
+        return this;
+    }
+
+    /**
      * Configures the rate at which frame render durations are polled.
      *
      * @param interval The period that should be used for polling.
@@ -281,6 +293,10 @@ public final class MiddlewareBuilder {
 
     public boolean isRecordingV3Enabled() {
         return configFlags.isRecordingEnabled() && configFlags.isRecordingV3Enabled();
+    }
+
+    public boolean isUIInstrumentationEnabled() {
+        return configFlags.isUIInstrumentationEnabled();
     }
 
     public ConfigFlags getConfigFlags() {

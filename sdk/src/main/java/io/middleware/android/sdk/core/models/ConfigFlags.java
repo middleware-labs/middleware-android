@@ -12,6 +12,7 @@ public class ConfigFlags {
     private boolean slowRenderingDetectionEnabled = true;
     private boolean recordingEnabled = true;
     private boolean recordingV3Enabled = true;
+    private boolean uiInstrumentationEnabled = true;
 
     public void enableDebug() {
         debugEnabled = true;
@@ -49,6 +50,10 @@ public class ConfigFlags {
         recordingV3Enabled = false;
     }
 
+    public void disableUIInstrumentation() {
+        uiInstrumentationEnabled = false;
+    }
+
     public boolean isDebugEnabled() {
         return debugEnabled;
     }
@@ -59,6 +64,10 @@ public class ConfigFlags {
 
     public boolean isRecordingV3Enabled() {
         return recordingV3Enabled;
+    }
+
+    public boolean isUIInstrumentationEnabled() {
+        return uiInstrumentationEnabled;
     }
 
     public boolean isActivityLifecycleEnabled() {
@@ -108,6 +117,9 @@ public class ConfigFlags {
                 + ","
                 + "recordingV3:"
                 + recordingV3Enabled
+                + ","
+                + "uiInstrumentation:"
+                + uiInstrumentationEnabled
                 + "]";
     }
 }

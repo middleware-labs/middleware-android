@@ -307,6 +307,23 @@ To blur sensitive information in session recording use the following method :
     instance.addSanitizedElement(someTextView);
 ```
 
+### WebView Instrumentation
+
+Bridges the native RUM session into web content loaded in a `WebView`. Pages instrumented with the Middleware browser RUM SDK detect the injected `MiddlewareNative` interface, adopt the native session id, and report all browser telemetry under the same session as the native app.
+
+```java
+WebView webView = findViewById(R.id.webView);
+webView.getSettings().setJavaScriptEnabled(true);
+Middleware.getInstance().integrateWithBrowserRum(webView);
+webView.loadUrl("https://your-pwa.example.com");
+```
+
+Requirements:
+- Call `integrateWithBrowserRum(webView)` **before** `loadUrl(...)`, with JavaScript enabled.
+- The loaded page must include the Middleware browser RUM SDK.
+
+Linking browser + mobile telemetry: the browser SDK inside the WebView and this SDK must report to the **same Middleware project** (same ingest target; each can use its own application/client token within that project). Cross-project linking is not supported — projects are stored separately and cannot be joined. With both in one project, the shared session id from this bridge unifies the session view, replay, and traces automatically.
+
 ## Coffee Cart Sample App
 
 The `:app` module is a full **Coffee Cart** ecommerce demo that exercises every Middleware Android RUM feature in a realistic coffee-ordering flow.

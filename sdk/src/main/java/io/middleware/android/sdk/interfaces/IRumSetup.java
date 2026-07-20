@@ -31,6 +31,8 @@ public interface IRumSetup {
 
     void setCrashReporter();
 
+    void setUIInstrumentation();
+
     void setResource(Resource resource);
     Resource getResource();
     String getResourceAttributes();
