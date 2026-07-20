@@ -13,7 +13,11 @@ import io.middleware.android.sdk.Middleware;
 public class WebViewActivity extends AppCompatActivity {
 
     private static final String TAG = "WebViewActivity";
-    private static final String HELP_URL = "https://middleware.io";
+    // Hybrid RUM demo: the sandbox PWA runs the Middleware browser SDK;
+    // integrateWithBrowserRum bridges the native session id into it, so native
+    // and web telemetry (including both session replay streams) land in one
+    // session.
+    private static final String HELP_URL = "https://sandbox-frontend.mw.dev";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -29,6 +33,9 @@ public class WebViewActivity extends AppCompatActivity {
 
         WebView webView = findViewById(R.id.webView);
         webView.getSettings().setJavaScriptEnabled(true);
+        // The sandbox PWA needs localStorage; without DOM storage most modern
+        // web apps render a blank page inside a WebView.
+        webView.getSettings().setDomStorageEnabled(true);
         webView.setWebViewClient(new WebViewClient());
 
         Middleware.getInstance().integrateWithBrowserRum(webView);
