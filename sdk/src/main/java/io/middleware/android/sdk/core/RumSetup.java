@@ -266,7 +266,11 @@ public class RumSetup implements IRumSetup {
     private Resource createMiddlewareResource() {
         // applicationName can't be null at this stage
         String applicationName = requireNonNull(builder.projectName);
-        ResourceBuilder resourceBuilder = Resource.getDefault().toBuilder().put(APP_NAME_KEY, applicationName);
+        ResourceBuilder resourceBuilder = Resource.getDefault().toBuilder();
+        // Wrapper-provided attributes (e.g. React Native SDK identity) go first
+        // so every SDK-controlled put below wins on conflict.
+        resourceBuilder.putAll(builder.resourceAttributes);
+        resourceBuilder.put(APP_NAME_KEY, applicationName);
         if (builder.deploymentEnvironment != null) {
             resourceBuilder.put("env", builder.deploymentEnvironment);
         }

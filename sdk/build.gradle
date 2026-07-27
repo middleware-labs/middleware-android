@@ -6,10 +6,14 @@ plugins {
 
 mavenPublishing {
     publishToMavenCentral()
-    signAllPublications()
+    // Signing needs the CI GPG key; skip it for local publishes so
+    // `publishToMavenLocal` works on dev machines.
+    if (!gradle.startParameter.taskNames.any { it.contains("publishToMavenLocal") }) {
+        signAllPublications()
+    }
 
     // Reads ORG_GRADLE_PROJECT_VERSION_NAME injected by CI
-    coordinates("io.github.middleware-labs", "android-sdk", project.findProperty("VERSION_NAME") ?: "2.0.16")
+    coordinates("io.github.middleware-labs", "android-sdk", project.findProperty("VERSION_NAME") ?: "3.1.0")
 
     pom {
         name = "Middleware Android RUM SDK"
@@ -103,7 +107,11 @@ dependencies {
     implementation 'commons-io:commons-io:2.14.0'
     implementation 'org.apache.commons:commons-lang3:3.13.0'
     implementation 'commons-codec:commons-codec:1.16.0'
-    implementation 'androidx.compose.ui:ui-android:1.9.5'
+    // Used only by the reflection-guarded Compose mask collector (stable
+    // semantics APIs). Kept at 1.6.x deliberately: newer compose AARs demand
+    // AGP >= 8.6, which breaks consumers on older toolchains (e.g. React
+    // Native 0.73 apps). Apps on newer compose win via version resolution.
+    implementation 'androidx.compose.ui:ui-android:1.6.8'
     coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.5"
     testImplementation('org.mockito:mockito-core:5.7.0')
     testImplementation('org.mockito:mockito-junit-jupiter:5.7.0')

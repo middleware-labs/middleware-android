@@ -53,6 +53,11 @@ class NoOpMiddleware extends Middleware {
     }
 
     @Override
+    public void setScreenName(String screenName) {
+        // no-op
+    }
+
+    @Override
     public void integrateWithBrowserRum(WebView webView) {
         // no-op
     }

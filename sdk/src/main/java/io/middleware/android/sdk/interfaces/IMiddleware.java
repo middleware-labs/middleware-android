@@ -28,6 +28,8 @@ public interface IMiddleware {
 
     <T> void setGlobalAttribute(AttributeKey<T> key, T value);
 
+    void setScreenName(String screenName);
+
     OpenTelemetry getOpenTelemetry();
 
     void integrateWithBrowserRum(WebView webView);
