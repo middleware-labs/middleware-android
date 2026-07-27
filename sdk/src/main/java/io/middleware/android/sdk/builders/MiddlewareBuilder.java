@@ -28,6 +28,7 @@ public final class MiddlewareBuilder {
 
     public Duration slowRenderingDetectionPollInterval = DEFAULT_SLOW_RENDERING_DETECTION_POLL_INTERVAL;
     public Attributes globalAttributes = Attributes.empty();
+    public Attributes resourceAttributes = Attributes.empty();
     @Nullable
     public String deploymentEnvironment;
     /**
@@ -214,6 +215,18 @@ public final class MiddlewareBuilder {
      */
     public MiddlewareBuilder setGlobalAttributes(Attributes attributes) {
         this.globalAttributes = attributes == null ? Attributes.empty() : attributes;
+        return this;
+    }
+
+    /**
+     * Provides additional {@link Attributes} merged into the OTLP resource (e.g. SDK identity
+     * attributes from a wrapper such as React Native). SDK-controlled resource attributes
+     * (service.name, project.name, recording flags, ...) always take precedence.
+     *
+     * @return {@code this}
+     */
+    public MiddlewareBuilder setResourceAttributes(Attributes attributes) {
+        this.resourceAttributes = attributes == null ? Attributes.empty() : attributes;
         return this;
     }
 

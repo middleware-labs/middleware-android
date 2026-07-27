@@ -63,6 +63,7 @@ class ReplayRecorderV3Test {
         recorder.stop()
         shadowOf(Looper.getMainLooper()).idle()
         exporter.shutdown()
+        io.middleware.android.sdk.core.instrumentations.ui.ScreenNames.resetForTest()
     }
 
     /** Waits for the background capture executor to publish events. */
@@ -93,6 +94,23 @@ class ReplayRecorderV3Test {
         assertTrue((metaData["width"] as Int) > 0)
         assertTrue((metaData["height"] as Int) > 0)
         assertTrue((metaData["href"] as String).startsWith("android-app://"))
+    }
+
+    @Test
+    fun manuallySetScreenNameDrivesHrefAndScreenCustom() {
+        io.middleware.android.sdk.core.instrumentations.ui.ScreenNames.setManual("HomeScreen")
+        controller.setup()
+        recorder.start(System.currentTimeMillis())
+        shadowOf(Looper.getMainLooper()).idle()
+        recorder.onActivityResumed(controller.get())
+
+        val events = awaitEvents(3).map { it.first }
+        val meta = events.first { it.type == RRWebEvents.TYPE_META }
+        assertTrue((meta.data["href"] as String).endsWith("/HomeScreen"))
+        val screenEvent = events.first { it.type == RRWebEvents.TYPE_CUSTOM }
+        @Suppress("UNCHECKED_CAST")
+        val payload = screenEvent.data["payload"] as Map<String, Any>
+        assertEquals("HomeScreen", payload["name"])
     }
 
     @Test

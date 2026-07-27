@@ -34,6 +34,7 @@ import java.util.function.Function;
 import io.middleware.android.sdk.builders.MiddlewareBuilder;
 import io.middleware.android.sdk.core.RumInitializer;
 import io.middleware.android.sdk.core.RumSetup;
+import io.middleware.android.sdk.core.instrumentations.ui.ScreenNames;
 import io.middleware.android.sdk.core.models.NativeRumSessionId;
 import io.middleware.android.sdk.core.replay.MiddlewareRecorder;
 import io.middleware.android.sdk.core.replay.ReplayRecording;
@@ -428,6 +429,18 @@ public class Middleware implements IMiddleware {
      */
     public void updateGlobalAttributes(Consumer<AttributesBuilder> attributesUpdater) {
         globalAttributes.update(attributesUpdater);
+    }
+
+    /**
+     * Manually set the current screen name (e.g. from React Navigation).
+     * Once set, the manual name wins over the auto-derived Activity name in
+     * tap events and the v3 session recording.
+     *
+     * @param screenName The screen name to report.
+     */
+    @Override
+    public void setScreenName(@NonNull String screenName) {
+        ScreenNames.setManual(screenName);
     }
 
     /**

@@ -129,7 +129,7 @@ class UIInstrumentation : AndroidInstrumentation {
                 val yDp = (rawY / density).toLong()
                 val widthDp = (decorView.width / density).toLong()
                 val heightDp = (decorView.height / density).toLong()
-                val screenName = activity.javaClass.simpleName
+                val screenName = ScreenNames.resolve(activity)
 
                 val target = hitTest(decorView, rawX.toInt(), rawY.toInt())
                 val targetClass = target?.javaClass?.simpleName

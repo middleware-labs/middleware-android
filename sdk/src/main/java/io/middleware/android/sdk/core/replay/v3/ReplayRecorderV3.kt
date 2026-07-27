@@ -8,6 +8,7 @@ import android.os.Looper
 import android.util.Log
 import android.view.View
 import io.middleware.android.sdk.builders.MiddlewareBuilder
+import io.middleware.android.sdk.core.instrumentations.ui.ScreenNames
 import io.middleware.android.sdk.core.replay.SessionRecorder
 import io.middleware.android.sdk.core.replay.v2.LifecycleManager
 import io.middleware.android.sdk.utils.Constants.LOG_TAG
@@ -226,8 +227,8 @@ internal class ReplayRecorderV3(
             val widthDp = (decorView.width / density).toInt()
             val heightDp = (decorView.height / density).toInt()
             val needsMeta = !sentMeta || widthDp != lastMetaWidthDp || heightDp != lastMetaHeightDp
-            val href = "android-app://" + activity.packageName + "/" + activity.javaClass.simpleName
-            val screenName = activity.javaClass.simpleName
+            val screenName = ScreenNames.resolve(activity)
+            val href = "android-app://" + activity.packageName + "/" + screenName
 
             // main thread: the view tree can't change while we walk it
             val maskRects = maskRectCollector.collect(decorView, sanitizedElements)
