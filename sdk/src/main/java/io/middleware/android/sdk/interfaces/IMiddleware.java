@@ -16,6 +16,21 @@ import okhttp3.OkHttpClient;
 public interface IMiddleware {
     MiddlewareRecorder getRecorder();
 
+    /**
+     * Starts session recording, overriding the init-time configuration and the sampler.
+     */
+    boolean startRecording();
+
+    /**
+     * Stops session recording until {@link #startRecording()} is called.
+     */
+    boolean stopRecording();
+
+    /**
+     * Whether session recording is currently running.
+     */
+    boolean isRecording();
+
     Call.Factory createRumOkHttpCallFactory(OkHttpClient client);
 
     void addEvent(String name, Attributes attributes);
