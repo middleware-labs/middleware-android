@@ -223,7 +223,10 @@ public class MiddlewareScreenshotManager implements SessionRecorder {
             ioExecutor = null;
         }
 
-        sanitizedElements.clear();
+        // sanitizedElements is deliberately NOT cleared: recording can be stopped and
+        // restarted at runtime via Middleware.stopRecording()/startRecording(), and the
+        // host registers masked views once. Clearing here would silently unmask them on
+        // restart. (The v3 recorder already keeps its list across stop/start.)
         lastOrientation = -1;
 
         // NOTE: maskPatternBitmap is NOT recycled here.

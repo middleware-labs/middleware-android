@@ -28,6 +28,21 @@ class NoOpMiddleware extends Middleware {
     }
 
     @Override
+    public boolean startRecording() {
+        return false;
+    }
+
+    @Override
+    public boolean stopRecording() {
+        return false;
+    }
+
+    @Override
+    public boolean isRecording() {
+        return false;
+    }
+
+    @Override
     public OpenTelemetry getOpenTelemetry() {
         return OpenTelemetry.noop();
     }

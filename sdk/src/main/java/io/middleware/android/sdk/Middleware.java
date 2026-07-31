@@ -74,9 +74,34 @@ public class Middleware implements IMiddleware {
     @Nullable
     private static Middleware INSTANCE;
     private static Logger LOGGER;
-    private static SessionRecorder sessionRecorder;
+    private static volatile SessionRecorder sessionRecorder;
     @Nullable
     private static ScheduledExecutorService recordingSessionWatcher;
+
+    /**
+     * Whether recording follows the sampler ({@link RecordingIntent#AUTO}) or has been
+     * explicitly turned on/off by the host through {@link #startRecording()} /
+     * {@link #stopRecording()}. A manual intent is sticky: it survives session rotation
+     * and sampler re-evaluation until the opposite call is made.
+     */
+    private enum RecordingIntent {
+        AUTO,
+        FORCED_ON,
+        FORCED_OFF
+    }
+
+    private static volatile RecordingIntent recordingIntent = RecordingIntent.AUTO;
+
+    // Retained so a recorder can be built lazily when startRecording() is called after
+    // an init that had recording disabled.
+    @Nullable
+    private static volatile MiddlewareBuilder recordingBuilder;
+    @Nullable
+    private static volatile LifecycleManager recordingLifecycleManager;
+    @Nullable
+    private static volatile Context recordingContext;
+    /** Value of {@code builder.isRecordingEnabled()} at init. */
+    private static volatile boolean recordingEnabledAtInit;
     private final OpenTelemetryRum openTelemetryRum;
 
     private final RumSetup middlewareRum;
@@ -121,12 +146,20 @@ public class Middleware implements IMiddleware {
         LOGGER = initialized.getOpenTelemetry().getLogsBridge()
                 .loggerBuilder(builder.serviceName)
                 .build();
+        // Retain the recording context unconditionally — startRecording() is an explicit
+        // host intent that overrides a disabled-at-init configuration, and it needs these
+        // to build a recorder.
+        recordingBuilder = builder;
+        recordingLifecycleManager = lifecycleManager;
+        recordingContext = context.getApplicationContext();
+        recordingEnabledAtInit = builder.isRecordingEnabled();
+
         if (builder.isRecordingEnabled()) {
             Log.d(LOG_TAG, "Session recording enabled; applying session sampling.");
             sessionRecorder = createSessionRecorder(builder, lifecycleManager, context);
             syncSessionRecordingWithSampler();
-            startRecordingSessionWatcher(builder, lifecycleManager, context);
         }
+        startRecordingSessionWatcher();
         Log.i(LOG_TAG, "Middleware RUM monitoring initialized with session ID: " + INSTANCE.getRumSessionId());
         return INSTANCE;
     }
@@ -137,7 +170,9 @@ public class Middleware implements IMiddleware {
      */
     private static SessionRecorder createSessionRecorder(
             MiddlewareBuilder builder, LifecycleManager lifecycleManager, Context context) {
-        if (builder.isRecordingV3Enabled()) {
+        // Deliberately NOT isRecordingV3Enabled(): that ANDs in the recording flag, so a
+        // disabled-at-init config would later start the legacy v2 recorder instead of v3.
+        if (builder.isRecordingV3Configured()) {
             return ReplayV3Factory.create(
                     (android.app.Application) context.getApplicationContext(),
                     builder,
@@ -147,37 +182,114 @@ public class Middleware implements IMiddleware {
     }
 
     /**
-     * Probe {@link io.opentelemetry.android.SessionIdRatioBasedSampler} via a span and start/stop
-     * session recording to match the sampling decision for the current session.
+     * Resolves whether recording should be running and starts/stops it to match.
+     *
+     * <p>The host's explicit intent wins; only when no manual override is in effect does
+     * this fall back to probing {@link io.opentelemetry.android.SessionIdRatioBasedSampler}
+     * via a span for the current session.
      */
-    private static void syncSessionRecordingWithSampler() {
-        if (INSTANCE == null || sessionRecorder == null) {
+    private static synchronized void syncSessionRecordingWithSampler() {
+        if (INSTANCE == null) {
             return;
+        }
+
+        final boolean shouldRecord;
+        switch (recordingIntent) {
+            case FORCED_OFF:
+                shouldRecord = false;
+                break;
+            case FORCED_ON:
+                // Explicit host intent wins over both the init flag and the sampler.
+                shouldRecord = true;
+                break;
+            case AUTO:
+            default:
+                shouldRecord = recordingEnabledAtInit && isSampledIn();
+                break;
+        }
+
+        if (shouldRecord && sessionRecorder == null) {
+            sessionRecorder = createSessionRecorder();
+        }
+        if (sessionRecorder == null) {
+            return;
+        }
+
+        if (shouldRecord) {
+            if (!sessionRecorder.isRunning()) {
+                Log.d(LOG_TAG, "Starting session recording.");
+                sessionRecorder.start(System.currentTimeMillis());
+                updateRecordingAttributes(true);
+            }
+        } else if (sessionRecorder.isRunning()) {
+            Log.d(LOG_TAG, "Stopping session recording.");
+            sessionRecorder.stop();
+            updateRecordingAttributes(false);
+        }
+    }
+
+    /**
+     * Probes the sampler for the current session.
+     */
+    private static boolean isSampledIn() {
+        if (INSTANCE == null) {
+            return false;
         }
         Span probe = INSTANCE.getOpenTelemetry()
                 .getTracer(RUM_TRACER_NAME)
                 .spanBuilder("record init")
                 .startSpan();
-        boolean shouldRecord = probe.isRecording();
+        boolean sampled = probe.isRecording();
         probe.end();
+        return sampled;
+    }
 
-        if (shouldRecord) {
-            if (!sessionRecorder.isRunning()) {
-                Log.d(LOG_TAG, "Session sampled – starting session recording.");
-                sessionRecorder.start(System.currentTimeMillis());
-            }
-        } else if (sessionRecorder.isRunning()) {
-            Log.d(LOG_TAG, "Session not sampled – stopping session recording.");
-            sessionRecorder.stop();
+    /**
+     * Builds a recorder from the retained init context, so recording can be turned on
+     * after an init that had it disabled.
+     */
+    @Nullable
+    private static SessionRecorder createSessionRecorder() {
+        MiddlewareBuilder builder = recordingBuilder;
+        LifecycleManager lifecycleManager = recordingLifecycleManager;
+        Context context = recordingContext;
+        if (builder == null || lifecycleManager == null || context == null) {
+            Log.w(LOG_TAG, "Cannot create session recorder before Middleware is initialized.");
+            return null;
         }
+        return createSessionRecorder(builder, lifecycleManager, context);
+    }
+
+    /**
+     * Keeps the {@code recording} / {@code recordingV3} resource attributes in step with
+     * the live recording state. They are supplied once at init (by the host, e.g. the
+     * React Native SDK), but recording can now be toggled at runtime — and these are what
+     * tell the backend a session has a replay to play back.
+     *
+     * <p>{@link ReplayV3Factory} resolves the resource lazily per batch, so replay events
+     * pick this up. Spans keep the resource captured when the tracer provider was built.
+     */
+    private static void updateRecordingAttributes(boolean recording) {
+        if (INSTANCE == null) {
+            return;
+        }
+        RumSetup rum = INSTANCE.getMiddlewareRum();
+        if (rum == null || rum.getResource() == null) {
+            return;
+        }
+        MiddlewareBuilder builder = recordingBuilder;
+        boolean v3 = recording && builder != null && builder.isRecordingV3Configured();
+        rum.setResource(rum.getResource().toBuilder()
+                .put("recording", recording ? "1" : "0")
+                .put("recordingV3", v3 ? "1" : "0")
+                .build());
     }
 
     /**
      * OpenTelemetry Android does not expose session observers publicly; poll for session id
      * changes so recording can follow session sampling across rotations.
      */
-    private static void startRecordingSessionWatcher(
-            MiddlewareBuilder builder, LifecycleManager lifecycleManager, Context context) {
+    private static void startRecordingSessionWatcher() {
         if (recordingSessionWatcher != null) {
             return;
         }
@@ -189,7 +301,7 @@ public class Middleware implements IMiddleware {
             return t;
         });
         recordingSessionWatcher.scheduleWithFixedDelay(() -> {
-            if (INSTANCE == null || !builder.isRecordingEnabled()) {
+            if (INSTANCE == null) {
                 return;
             }
             String currentSessionId = INSTANCE.getRumSessionId();
@@ -197,10 +309,7 @@ public class Middleware implements IMiddleware {
             if (previous == null || previous.equals(currentSessionId)) {
                 return;
             }
-            Log.d(LOG_TAG, "Session changed; re-evaluating recording sampling.");
-            if (sessionRecorder == null) {
-                sessionRecorder = createSessionRecorder(builder, lifecycleManager, context);
-            }
+            Log.d(LOG_TAG, "Session changed; re-evaluating recording state.");
             syncSessionRecordingWithSampler();
         }, RECORDING_SESSION_WATCH_INTERVAL_SECONDS, RECORDING_SESSION_WATCH_INTERVAL_SECONDS,
                 TimeUnit.SECONDS);
@@ -237,14 +346,46 @@ public class Middleware implements IMiddleware {
     }
 
     /**
-     * @return @{code true} if session recording stopped successfully.
+     * Starts session recording immediately, overriding both a disabled-at-init
+     * configuration ({@code disableSessionRecording()}) and the session sampler.
+     *
+     * <p>The intent is sticky — recording keeps running across session rotations until
+     * {@link #stopRecording()} is called.
+     *
+     * @return {@code true} if session recording is running after this call.
      */
+    @Override
+    public boolean startRecording() {
+        recordingIntent = RecordingIntent.FORCED_ON;
+        syncSessionRecordingWithSampler();
+        return isRecording();
+    }
+
+    /**
+     * Stops session recording immediately.
+     *
+     * <p>The intent is sticky — recording stays off across session rotations and sampler
+     * re-evaluation until {@link #startRecording()} is called.
+     *
+     * @return {@code true} if session recording stopped successfully.
+     */
+    @Override
     public boolean stopRecording() {
-        if (sessionRecorder != null) {
-            sessionRecorder.stop();
-            return true;
+        recordingIntent = RecordingIntent.FORCED_OFF;
+        if (sessionRecorder == null) {
+            return false;
         }
-        return false;
+        syncSessionRecordingWithSampler();
+        return true;
+    }
+
+    /**
+     * @return {@code true} if session recording is currently running.
+     */
+    @Override
+    public boolean isRecording() {
+        SessionRecorder recorder = sessionRecorder;
+        return recorder != null && recorder.isRunning();
     }
 
     /**

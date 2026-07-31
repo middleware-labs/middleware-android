@@ -23,6 +23,17 @@ public class CoffeeCartApplication extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        OkHttpClient baseClient = new OkHttpClient.Builder().build();
+
+        if ("no_sdk".equals(BuildConfig.BENCH_MODE)) {
+            // Benchmark baseline: app runs without the SDK. Middleware.getInstance()
+            // resolves to the no-op implementation everywhere else in the app.
+            middleware = Middleware.getInstance();
+            rumOkHttpClient = baseClient;
+            productRepository = new ProductRepository(rumOkHttpClient, middleware);
+            return;
+        }
+
         RecordingOptions.Builder recordingOptins = new RecordingOptions.Builder();
         recordingOptins.setMaskAllImages(false);
         recordingOptins.setMaskAllTextInputs(false);
@@ -38,12 +49,16 @@ public class CoffeeCartApplication extends Application {
                 .setRumAccessToken(BuildConfig.ACCESS_KEY)
                 .setSlowRenderingDetectionPollInterval(Duration.ofMillis(1000))
                 .setDeploymentEnvironment("PROD");
+        if ("recording_off".equals(BuildConfig.BENCH_MODE)) {
+            builder.disableSessionRecording();
+        } else if (!BuildConfig.RECORDING_V3) {
+            builder.disableSessionRecordingV3();
+        }
         builder.build(this);
 
         middleware = Middleware.getInstance();
         middleware.i("APP", "CoffeeCartApplication initialised – SDK ready");
 
-        OkHttpClient baseClient = new OkHttpClient.Builder().build();
         rumOkHttpClient = middleware.createRumOkHttpCallFactory(baseClient);
 
         productRepository = new ProductRepository(rumOkHttpClient, middleware);
