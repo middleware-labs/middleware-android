@@ -36,6 +36,12 @@ android {
                 "RECORDING_V3",
                 secretProperties.getProperty('RECORDING_V3', 'true')
         )
+        // Benchmark harness hook (rum-benchmarks): "" | "no_sdk" | "recording_off"
+        buildConfigField(
+                "String",
+                "BENCH_MODE",
+                "\"${secretProperties.getProperty('BENCH_MODE', '')}\""
+        )
         buildFeatures {
             buildConfig true
         }
