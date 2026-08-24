@@ -110,6 +110,9 @@ implementation 'io.github.middleware-labs:android-sdk:+'
 ### Configure of Middleware Android Instrumentation
 
 ```java
+import io.middleware.android.sdk.Middleware;
+import io.opentelemetry.api.common.Attributes;
+
 class MiddlewareApplication extends Application {
    private final String targetUrl = "<target-url>";
    private final String rumAccessToken = "<your-access-token>";
@@ -130,6 +133,10 @@ class MiddlewareApplication extends Application {
 }
 
 ```
+
+> `Attributes` lives in `io.opentelemetry.api.common`, which the SDK exposes
+> transitively since v3.2.0. On older SDK versions, add it explicitly:
+> `implementation 'io.opentelemetry:opentelemetry-api:1.48.0'`
 
 ## Documentation
 
