@@ -11,9 +11,11 @@ import static io.middleware.android.sdk.utils.Constants.RUM_TRACER_NAME;
 import static io.middleware.android.sdk.utils.Constants.WORKFLOW_NAME_KEY;
 
 import android.app.Activity;
+import android.app.Application;
 import android.content.Context;
 import android.location.Location;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -27,6 +29,7 @@ import androidx.annotation.RequiresApi;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -77,6 +80,7 @@ public class Middleware implements IMiddleware {
     private static volatile SessionRecorder sessionRecorder;
     @Nullable
     private static ScheduledExecutorService recordingSessionWatcher;
+    private static final ForegroundTracker foregroundTracker = new ForegroundTracker();
 
     /**
      * Whether recording follows the sampler ({@link RecordingIntent#AUTO}) or has been
@@ -159,7 +163,7 @@ public class Middleware implements IMiddleware {
             sessionRecorder = createSessionRecorder(builder, lifecycleManager, context);
             syncSessionRecordingWithSampler();
         }
-        startRecordingSessionWatcher();
+        startRecordingSessionWatcher(context);
         Log.i(LOG_TAG, "Middleware RUM monitoring initialized with session ID: " + INSTANCE.getRumSessionId());
         return INSTANCE;
     }
@@ -288,11 +292,20 @@ public class Middleware implements IMiddleware {
     /**
      * OpenTelemetry Android does not expose session observers publicly; poll for session id
      * changes so recording can follow session sampling across rotations.
+     *
+     * <p>The poll runs only while the app is in the foreground. {@code getRumSessionId()} is not
+     * a passive read: OpenTelemetry Android bumps its inactivity timer on every call, so polling
+     * in the background would keep the session-timeout clock permanently reset and stop the
+     * background timeout configured in {@code RumSetup} from ever firing, leaving the four-hour
+     * hard cap as the only thing that ends a session. Foreground-only polling also loses nothing:
+     * recording is what this watcher steers, and that only runs in the foreground. A rotation
+     * that happens while backgrounded is picked up on the first tick after the app returns.
      */
-    private static void startRecordingSessionWatcher() {
+    private static void startRecordingSessionWatcher(Context context) {
         if (recordingSessionWatcher != null) {
             return;
         }
+        registerForegroundTracker(context);
         final AtomicReference<String> lastSessionId =
                 new AtomicReference<>(INSTANCE != null ? INSTANCE.getRumSessionId() : "");
         recordingSessionWatcher = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -301,7 +314,7 @@ public class Middleware implements IMiddleware {
             return t;
         });
         recordingSessionWatcher.scheduleWithFixedDelay(() -> {
-            if (INSTANCE == null) {
+            if (INSTANCE == null || !foregroundTracker.isInForeground()) {
                 return;
             }
             String currentSessionId = INSTANCE.getRumSessionId();
@@ -313,6 +326,66 @@ public class Middleware implements IMiddleware {
             syncSessionRecordingWithSampler();
         }, RECORDING_SESSION_WATCH_INTERVAL_SECONDS, RECORDING_SESSION_WATCH_INTERVAL_SECONDS,
                 TimeUnit.SECONDS);
+    }
+
+    private static void registerForegroundTracker(Context context) {
+        Context applicationContext = context.getApplicationContext();
+        if (applicationContext instanceof Application) {
+            ((Application) applicationContext).registerActivityLifecycleCallbacks(foregroundTracker);
+        }
+        // With no Application to observe the tracker reports foreground forever, which is the
+        // behaviour the watcher had before it was gated.
+    }
+
+    /**
+     * Whether the app is in the foreground, counted from activity lifecycle callbacks.
+     *
+     * <p>Before the first callback arrives the process has only just launched, so it counts as
+     * foreground; from the first callback on, the started-activity count is authoritative. The
+     * count matters because callbacks can be registered while an activity is already started,
+     * in which case the first event seen is a stop with no matching start.
+     */
+    static final class ForegroundTracker implements Application.ActivityLifecycleCallbacks {
+        private final AtomicInteger startedActivities = new AtomicInteger();
+        private volatile boolean sawLifecycle = false;
+
+        boolean isInForeground() {
+            return !sawLifecycle || startedActivities.get() > 0;
+        }
+
+        @Override
+        public void onActivityCreated(@NonNull Activity activity, @Nullable Bundle savedInstanceState) {
+        }
+
+        @Override
+        public void onActivityStarted(@NonNull Activity activity) {
+            sawLifecycle = true;
+            startedActivities.incrementAndGet();
+        }
+
+        @Override
+        public void onActivityResumed(@NonNull Activity activity) {
+        }
+
+        @Override
+        public void onActivityPaused(@NonNull Activity activity) {
+        }
+
+        @Override
+        public void onActivityStopped(@NonNull Activity activity) {
+            sawLifecycle = true;
+            // Never let an unmatched stop drive the count negative; the watcher would then
+            // stay off for the rest of the process.
+            startedActivities.updateAndGet(started -> Math.max(started - 1, 0));
+        }
+
+        @Override
+        public void onActivitySaveInstanceState(@NonNull Activity activity, @NonNull Bundle outState) {
+        }
+
+        @Override
+        public void onActivityDestroyed(@NonNull Activity activity) {
+        }
     }
 
     /**
