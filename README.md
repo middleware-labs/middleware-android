@@ -226,6 +226,14 @@ Methods that can be used for setting instrumentation & configure your applicatio
         Sets the default polling for slow or frozen render detection. Default value in milliseconds is <code>1000</code>
     </td>
 </tr>
+<tr>
+    <td>
+        <code lang="java">setTracePropagationTargets(List&lt;Pattern&gt;)</code>
+    </td>
+    <td>
+        Restricts which outbound request URLs carry <code>traceparent</code> and B3 headers. By default every URL does. See <a href="#distributed-tracing">Distributed Tracing</a>.
+    </td>
+</tr>
 </tbody>
 </table>
 
@@ -238,6 +246,88 @@ private Call.Factory buildOkHttpClient(Middleware middleware) {
    return middleware.createRumOkHttpCallFactory(new OkHttpClient());
 }
 ```
+
+> **HTTP instrumentation is not automatic on Android.** Unlike the browser and iOS SDKs, this SDK
+> cannot install itself into your network stack. Requests made through a plain `OkHttpClient`
+> produce no HTTP spans and carry no trace headers. Every network call must go through the
+> `Call.Factory` returned above. If none does, the SDK logs a warning about ten seconds after
+> startup.
+
+### Distributed Tracing
+
+End-to-end tracing links a RUM session to the backend traces it caused, so you can open a slow
+screen in the session explorer and see the server spans behind it.
+
+It works by trace-context propagation: the SDK creates a client span for each outgoing request and
+injects the W3C `traceparent` header (plus B3, for backends that read it). Your instrumented
+backend continues that same trace, and Middleware correlates the two by trace ID.
+
+**This only happens for requests made through `createRumOkHttpCallFactory`.** That is the single
+requirement, and the most common reason Android sessions show no backend traces.
+
+```java
+public class MyApplication extends Application {
+
+    private Call.Factory httpClient;
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+
+        Middleware.builder()
+                .setTarget("<target>")
+                .setProjectName("<project>")
+                .setServiceName("<service>")
+                .setRumAccessToken("<token>")
+                .build(this);
+
+        // Wrap once, then use this everywhere in the app.
+        httpClient = Middleware.getInstance()
+                .createRumOkHttpCallFactory(new OkHttpClient());
+    }
+}
+```
+
+With Retrofit, pass the wrapped factory rather than an `OkHttpClient`:
+
+```java
+Retrofit retrofit = new Retrofit.Builder()
+        .baseUrl("https://api.example.com/")
+        .callFactory(httpClient)
+        .build();
+```
+
+#### Supported clients
+
+Only **OkHttp** is instrumented, including anything layered on it (Retrofit, Coil, and similar)
+as long as the wrapped factory is what they use. `HttpURLConnection`, Ktor, Volley, Cronet and
+raw `java.net` clients are not instrumented and will not correlate.
+
+#### Restricting which hosts receive trace headers
+
+By default every request through the wrapped client carries trace headers. To keep your trace IDs
+off third-party APIs, list the hosts that should receive them:
+
+```java
+Middleware.builder()
+        // ... other configuration
+        .setTracePropagationTargets(Arrays.asList(
+                Pattern.compile("api\\.example\\.com"),
+                Pattern.compile("checkout\\.example\\.com")))
+        .build(this);
+```
+
+Each pattern is searched for anywhere in the request URL, so `api.example.com` matches
+`https://api.example.com/orders`. Requests to other hosts are still timed and still appear in the
+session — they just travel without trace headers. Passing an empty list disables propagation
+entirely.
+
+#### Verifying it works
+
+The span for each request records its outbound headers as attributes. In the session explorer,
+open a network event and look for `http.request.header.traceparent`. If it is present, the SDK
+propagated correctly and any missing correlation is on the backend side. If it is absent, the
+request did not go through the wrapped client.
 
 ### Manually instrumentation for android application
 

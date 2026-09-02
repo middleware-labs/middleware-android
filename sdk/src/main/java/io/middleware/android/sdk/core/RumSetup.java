@@ -83,11 +83,10 @@ public class RumSetup implements IRumSetup {
     public RumSetup(Application application, MiddlewareBuilder builder) {
         this.builder = builder;
         this.setResource(createMiddlewareResource());
+        // Network/screen attributes, instrumentation discovery and SDK initialization events are
+        // all on by default; OtelRumConfig only exposes disableX() setters and shouldX() getters,
+        // so leaving them alone is how they stay enabled.
         final OtelRumConfig otelRumConfig = new OtelRumConfig();
-        otelRumConfig.shouldIncludeNetworkAttributes();
-        otelRumConfig.shouldDiscoverInstrumentations();
-        otelRumConfig.shouldIncludeScreenAttributes();
-        otelRumConfig.shouldGenerateSdkInitializationEvents();
         otelRumConfig.setSessionTimeout(Duration.ofMinutes(15));
         openTelemetryRumBuilder = OpenTelemetryRum.builder(application, otelRumConfig);
         openTelemetryRumBuilder.mergeResource(resource);
@@ -137,6 +136,14 @@ public class RumSetup implements IRumSetup {
 
             return sdkTracerProviderBuilder;
         });
+    }
+
+    /**
+     * The builder this setup was configured from, so init-time settings such as
+     * {@code tracePropagationTargets} stay reachable after {@link #build()}.
+     */
+    public MiddlewareBuilder getBuilder() {
+        return builder;
     }
 
     @Override
