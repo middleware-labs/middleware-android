@@ -9,6 +9,10 @@ import android.util.Log;
 import androidx.annotation.Nullable;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.regex.Pattern;
 
 import io.middleware.android.sdk.Middleware;
 import io.middleware.android.sdk.core.models.ConfigFlags;
@@ -18,6 +22,13 @@ import io.middleware.android.sdk.core.replay.v2.RecordingOptions;
 import io.opentelemetry.api.common.Attributes;
 
 public final class MiddlewareBuilder {
+
+    /**
+     * Propagate to every host unless the caller narrows it. This preserves the behaviour the SDK
+     * has always had and matches the browser SDK's default.
+     */
+    private static final List<Pattern> DEFAULT_TRACE_PROPAGATION_TARGETS =
+            Collections.singletonList(Pattern.compile(".*"));
 
     public String projectName;
     public String serviceName;
@@ -35,6 +46,11 @@ public final class MiddlewareBuilder {
      * Fraction of sessions to sample for traces and session recordings. Default {@code 1.0}.
      */
     public double sessionSamplingRatio = 1.0;
+    /**
+     * Regexes matched against the full outbound request URL to decide which requests carry
+     * trace-context headers. See {@link #setTracePropagationTargets(List)}.
+     */
+    public List<Pattern> tracePropagationTargets = DEFAULT_TRACE_PROPAGATION_TARGETS;
     public RecordingOptions recordingOptions = new RecordingOptions.Builder()
             .setFrequency(RecordingFrequency.LOW)
             .setQuality(RecordingQuality.LOW)
@@ -259,6 +275,40 @@ public final class MiddlewareBuilder {
         return this;
     }
 
+
+    /**
+     * Restricts which outbound requests carry trace-context headers, so that backend correlation
+     * works for your own services without handing your trace ids to third parties.
+     *
+     * <p>Each pattern is searched for anywhere in the request URL, so
+     * {@code Pattern.compile("api.example.com")} matches
+     * {@code https://api.example.com/orders}. Only requests made through the client returned by
+     * {@link Middleware#createRumOkHttpCallFactory(okhttp3.OkHttpClient)} are affected — that is
+     * the only place this SDK writes trace headers.
+     *
+     * <p>Defaults to matching every URL. Passing {@code null} restores that default; passing an
+     * empty list disables trace propagation entirely while still recording the HTTP spans.
+     *
+     * @param targets regexes matched against the full request URL
+     * @return {@code this}
+     */
+    public MiddlewareBuilder setTracePropagationTargets(@Nullable List<Pattern> targets) {
+        if (targets == null) {
+            this.tracePropagationTargets = DEFAULT_TRACE_PROPAGATION_TARGETS;
+        } else {
+            this.tracePropagationTargets =
+                    Collections.unmodifiableList(new ArrayList<>(targets));
+        }
+        return this;
+    }
+
+    /**
+     * Whether {@link #setTracePropagationTargets(List)} has narrowed propagation away from the
+     * default of every URL. When it has not, the filtering interceptor is not installed at all.
+     */
+    public boolean hasTracePropagationTargets() {
+        return tracePropagationTargets != DEFAULT_TRACE_PROPAGATION_TARGETS;
+    }
 
     /**
      * Creates a new instance of {@link Middleware} with the settings of this {@link

@@ -29,6 +29,7 @@ import androidx.annotation.RequiresApi;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -37,6 +38,7 @@ import java.util.function.Function;
 import io.middleware.android.sdk.builders.MiddlewareBuilder;
 import io.middleware.android.sdk.core.RumInitializer;
 import io.middleware.android.sdk.core.RumSetup;
+import io.middleware.android.sdk.core.TracePropagationFilter;
 import io.middleware.android.sdk.core.instrumentations.ui.ScreenNames;
 import io.middleware.android.sdk.core.models.NativeRumSessionId;
 import io.middleware.android.sdk.core.replay.MiddlewareRecorder;
@@ -106,6 +108,16 @@ public class Middleware implements IMiddleware {
     private static volatile Context recordingContext;
     /** Value of {@code builder.isRecordingEnabled()} at init. */
     private static volatile boolean recordingEnabledAtInit;
+    /**
+     * Set by {@link #createRumOkHttpCallFactory(OkHttpClient)}. Unlike the browser and iOS SDKs,
+     * HTTP instrumentation here cannot install itself — it only exists on clients the host app
+     * routes through that factory — so this is the one signal available for telling a host that
+     * backend correlation is not going to work.
+     */
+    private static final AtomicBoolean okHttpInstrumentationInstalled = new AtomicBoolean(false);
+    /** How long to wait after init before concluding no HTTP client was ever wrapped. */
+    private static final long HTTP_INSTRUMENTATION_CHECK_DELAY_SECONDS = 10;
+
     private final OpenTelemetryRum openTelemetryRum;
 
     private final RumSetup middlewareRum;
@@ -164,8 +176,47 @@ public class Middleware implements IMiddleware {
             syncSessionRecordingWithSampler();
         }
         startRecordingSessionWatcher(context);
+        warnIfHttpInstrumentationMissing();
         Log.i(LOG_TAG, "Middleware RUM monitoring initialized with session ID: " + INSTANCE.getRumSessionId());
         return INSTANCE;
+    }
+
+    /**
+     * Warns, once and shortly after init, if no OkHttp client was ever wrapped.
+     *
+     * <p>Without a wrapped client the SDK emits no HTTP spans and injects no trace headers, so
+     * RUM sessions look healthy while backend correlation silently produces nothing. That failure
+     * is invisible from the dashboard, which is exactly why it is worth a log line. Hosts that do
+     * wrap a client — or that deliberately make no HTTP calls — never see it.
+     */
+    private static void warnIfHttpInstrumentationMissing() {
+        final ScheduledExecutorService checker =
+                Executors.newSingleThreadScheduledExecutor(
+                        runnable -> {
+                            Thread thread = new Thread(runnable, "mw-http-instrumentation-check");
+                            thread.setDaemon(true);
+                            return thread;
+                        });
+        checker.schedule(
+                () -> {
+                    if (!okHttpInstrumentationInstalled.get()) {
+                        Log.w(
+                                LOG_TAG,
+                                "No OkHttp client has been wrapped with"
+                                        + " Middleware.createRumOkHttpCallFactory(), so no HTTP"
+                                        + " spans are being recorded and no trace headers are"
+                                        + " being sent, so backend traces will not correlate with"
+                                        + " these RUM sessions. See the Distributed Tracing"
+                                        + " section of the Middleware Android SDK README."
+                                        + " (Safe to ignore if you build your HTTP client"
+                                        + " lazily — this only checks the first "
+                                        + HTTP_INSTRUMENTATION_CHECK_DELAY_SECONDS
+                                        + " seconds after startup.)");
+                    }
+                    checker.shutdown();
+                },
+                HTTP_INSTRUMENTATION_CHECK_DELAY_SECONDS,
+                TimeUnit.SECONDS);
     }
 
     /**
@@ -466,12 +517,34 @@ public class Middleware implements IMiddleware {
      * {@link Call.Factory} is the primary useful interface implemented by the OkHttpClient, this
      * should be a drop-in replacement for any usages of OkHttpClient.
      *
+     * <p>Every request made through the returned factory carries W3C {@code traceparent} and B3
+     * headers, which is what lets backend traces correlate with the RUM session. Requests made
+     * through the unwrapped client carry nothing, so route all of the app's traffic through this.
+     * Restrict which hosts receive the headers with
+     * {@link MiddlewareBuilder#setTracePropagationTargets(java.util.List)}.
+     *
      * @param client The {@link OkHttpClient} to wrap with OpenTelemetry and RUM instrumentation.
      * @return A {@link okhttp3.Call.Factory} implementation.
      */
     @Override
     public Call.Factory createRumOkHttpCallFactory(OkHttpClient client) {
-        return createOkHttpTracing().newCallFactory(client);
+        okHttpInstrumentationInstalled.set(true);
+        return createOkHttpTracing().newCallFactory(withTracePropagationFilter(client));
+    }
+
+    /**
+     * Adds the {@link TracePropagationFilter} unless propagation is left at its match-everything
+     * default, in which case the filter would strip nothing and is not worth an interceptor.
+     */
+    private OkHttpClient withTracePropagationFilter(OkHttpClient client) {
+        final MiddlewareBuilder builder = middlewareRum.getBuilder();
+        if (!builder.hasTracePropagationTargets()) {
+            return client;
+        }
+        return client.newBuilder()
+                .addNetworkInterceptor(
+                        new TracePropagationFilter(builder.tracePropagationTargets))
+                .build();
     }
 
     private OkHttpTelemetry createOkHttpTracing() {
