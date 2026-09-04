@@ -53,7 +53,7 @@ public class RecordingBenchTest {
 
             RecordingBench.Metrics metrics = RecordingBench.run(
                     scenario,
-                    10, // matches MiddlewareScreenshotManager ARCHIVE_CHUNK_SIZE
+                    10, // matches the legacy v2 recorder's ARCHIVE_CHUNK_SIZE
                     freq,
                     quality,
                     sanitize,

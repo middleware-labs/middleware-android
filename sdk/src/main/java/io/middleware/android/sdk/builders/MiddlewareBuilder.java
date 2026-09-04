@@ -181,20 +181,6 @@ public final class MiddlewareBuilder {
     }
 
     /**
-     * Enables v3 session recording: rrweb-compatible screenshot events sent through the
-     * metrics endpoint, replayed with the standard web session-replay player. When enabled,
-     * the {@code recordingV3} resource attribute is set and the legacy (v2) screenshot
-     * recorder does not run. Has no effect if session recording is disabled via
-     * {@link #disableSessionRecording()}.
-     *
-     * @return {@code this}
-     */
-    public MiddlewareBuilder disableSessionRecordingV3() {
-        configFlags.disableSessionRecordingV3();
-        return this;
-    }
-
-    /**
      * Disables automatic UI tap instrumentation. When enabled (the default), each user tap is
      * captured and emitted as a {@code tap} RUM span (with dp coordinates and the tapped view's
      * identity) so the backend can build a click heatmap for the app.
@@ -352,20 +338,6 @@ public final class MiddlewareBuilder {
 
     public boolean isRecordingEnabled() {
         return configFlags.isRecordingEnabled();
-    }
-
-    public boolean isRecordingV3Enabled() {
-        return configFlags.isRecordingEnabled() && configFlags.isRecordingV3Enabled();
-    }
-
-    /**
-     * Whether v3 is the configured recorder, independent of whether recording is enabled.
-     * Unlike {@link #isRecordingV3Enabled()} this does not AND in the recording flag, so a
-     * {@code startRecording()} call after a disabled-at-init setup still picks v3 rather
-     * than falling back to the legacy v2 recorder.
-     */
-    public boolean isRecordingV3Configured() {
-        return configFlags.isRecordingV3Enabled();
     }
 
     public boolean isUIInstrumentationEnabled() {

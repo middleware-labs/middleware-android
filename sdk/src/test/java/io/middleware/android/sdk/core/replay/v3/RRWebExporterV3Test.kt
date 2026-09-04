@@ -29,7 +29,7 @@ class RRWebExporterV3Test {
         ) { sessionId ->
             linkedMapOf(
                 "mw.rum" to "true",
-                "recordingV3" to "1",
+                "recording" to "1",
                 "session.id" to sessionId,
             )
         }
@@ -68,7 +68,7 @@ class RRWebExporterV3Test {
             it.asJsonObject["key"].asString to
                 it.asJsonObject["value"].asJsonObject["stringValue"].asString
         }
-        assertEquals("1", resourceAttrs["recordingV3"])
+        assertEquals("1", resourceAttrs["recording"])
         assertEquals("session-1", resourceAttrs["session.id"])
 
         val metrics = resourceMetrics[0].asJsonObject
