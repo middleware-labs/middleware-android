@@ -5,7 +5,6 @@ import android.webkit.WebView;
 
 import androidx.annotation.Nullable;
 
-import io.middleware.android.sdk.core.replay.MiddlewareRecorder;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.common.Attributes;
@@ -14,7 +13,6 @@ import okhttp3.Call;
 import okhttp3.OkHttpClient;
 
 public interface IMiddleware {
-    MiddlewareRecorder getRecorder();
 
     /**
      * Starts session recording, overriding the init-time configuration and the sampler.

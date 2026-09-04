@@ -1,6 +1,5 @@
 package io.middleware.android.sdk;
 
-import static io.middleware.android.sdk.utils.Constants.BASE_ORIGIN;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_ERROR;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_KEY;
 import static io.middleware.android.sdk.utils.Constants.EVENT_TYPE;
@@ -14,7 +13,6 @@ import android.app.Activity;
 import android.app.Application;
 import android.content.Context;
 import android.location.Location;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -24,7 +22,6 @@ import android.webkit.WebView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -41,11 +38,8 @@ import io.middleware.android.sdk.core.RumSetup;
 import io.middleware.android.sdk.core.TracePropagationFilter;
 import io.middleware.android.sdk.core.instrumentations.ui.ScreenNames;
 import io.middleware.android.sdk.core.models.NativeRumSessionId;
-import io.middleware.android.sdk.core.replay.MiddlewareRecorder;
-import io.middleware.android.sdk.core.replay.ReplayRecording;
 import io.middleware.android.sdk.core.replay.SessionRecorder;
 import io.middleware.android.sdk.core.replay.v2.LifecycleManager;
-import io.middleware.android.sdk.core.replay.v2.MiddlewareScreenshotManager;
 import io.middleware.android.sdk.core.replay.v3.ReplayV3Factory;
 import io.middleware.android.sdk.extractors.RumResponseAttributesExtractor;
 import io.middleware.android.sdk.interfaces.IMiddleware;
@@ -220,20 +214,14 @@ public class Middleware implements IMiddleware {
     }
 
     /**
-     * Selects the recorder implementation: v3 (rrweb events through the metrics
-     * endpoint) when enabled on the builder, otherwise the v2 screenshot recorder.
+     * Builds the session recorder: rrweb events sent through the metrics endpoint.
      */
     private static SessionRecorder createSessionRecorder(
             MiddlewareBuilder builder, LifecycleManager lifecycleManager, Context context) {
-        // Deliberately NOT isRecordingV3Enabled(): that ANDs in the recording flag, so a
-        // disabled-at-init config would later start the legacy v2 recorder instead of v3.
-        if (builder.isRecordingV3Configured()) {
-            return ReplayV3Factory.create(
-                    (android.app.Application) context.getApplicationContext(),
-                    builder,
-                    lifecycleManager);
-        }
-        return new MiddlewareScreenshotManager(builder, lifecycleManager);
+        return ReplayV3Factory.create(
+                (android.app.Application) context.getApplicationContext(),
+                builder,
+                lifecycleManager);
     }
 
     /**
@@ -316,10 +304,10 @@ public class Middleware implements IMiddleware {
     }
 
     /**
-     * Keeps the {@code recording} / {@code recordingV3} resource attributes in step with
-     * the live recording state. They are supplied once at init (by the host, e.g. the
-     * React Native SDK), but recording can now be toggled at runtime — and these are what
-     * tell the backend a session has a replay to play back.
+     * Keeps the {@code recording} resource attribute in step with the live recording
+     * state. It is supplied once at init (by the host, e.g. the React Native SDK), but
+     * recording can now be toggled at runtime — and this is what tells the backend a
+     * session has a replay to play back.
      *
      * <p>{@link ReplayV3Factory} resolves the resource lazily per batch, so replay events
      * pick this up. Spans keep the resource captured when the tracer provider was built.
@@ -332,11 +320,8 @@ public class Middleware implements IMiddleware {
         if (rum == null || rum.getResource() == null) {
             return;
         }
-        MiddlewareBuilder builder = recordingBuilder;
-        boolean v3 = recording && builder != null && builder.isRecordingV3Configured();
         rum.setResource(rum.getResource().toBuilder()
                 .put("recording", recording ? "1" : "0")
-                .put("recordingV3", v3 ? "1" : "0")
                 .build());
     }
 
@@ -455,18 +440,6 @@ public class Middleware implements IMiddleware {
             return NoOpMiddleware.INSTANCE;
         }
         return INSTANCE;
-    }
-
-    /**
-     * Returns the MiddlewareRecording enables recording functionality on activity.
-     * NOTE: This api is available above Android Nougat version.
-     *
-     * @return MiddlewareRecorder
-     */
-    @RequiresApi(api = Build.VERSION_CODES.N)
-    @Override
-    public MiddlewareRecorder getRecorder() {
-        return new MiddlewareRecorder(this);
     }
 
     /**
@@ -600,25 +573,6 @@ public class Middleware implements IMiddleware {
         this.setGlobalAttribute(AttributeKey.stringKey("session.id"), nativeSessionId);
         this.setGlobalAttribute(AttributeKey.stringKey("session.start_time"), nativeStartTime);
         middlewareRum.setResource(builder.build());
-    }
-
-    //NOTE: This method is not used as of now will be used in future purposes.
-    public void addRumEvent(ReplayRecording replayRecording, Attributes attributes) {
-        if (isInitialized()) {
-            INSTANCE.sendRumEvent(replayRecording, attributes);
-        } else {
-            Log.d(RUM_TRACER_NAME, "Unable to send rum event setup is not done properly.");
-        }
-    }
-
-    private void sendRumEvent(ReplayRecording replayRecording, Attributes attributes) {
-        Attributes newAttributes = attributes.toBuilder()
-                .put("mw.client_origin", BASE_ORIGIN)
-                .put("rum_origin", BASE_ORIGIN)
-                .put("origin", BASE_ORIGIN)
-                .put("session.id", getRumSessionId())
-                .build();
-        rumInitializer.sendRumEvent(replayRecording, newAttributes);
     }
 
     /**

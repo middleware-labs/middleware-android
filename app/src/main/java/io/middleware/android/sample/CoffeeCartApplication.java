@@ -51,8 +51,6 @@ public class CoffeeCartApplication extends Application {
                 .setDeploymentEnvironment("PROD");
         if ("recording_off".equals(BuildConfig.BENCH_MODE)) {
             builder.disableSessionRecording();
-        } else if (!BuildConfig.RECORDING_V3) {
-            builder.disableSessionRecordingV3();
         }
         builder.build(this);
 

@@ -11,7 +11,6 @@ public class ConfigFlags {
     private boolean anrDetectionEnabled = true;
     private boolean slowRenderingDetectionEnabled = true;
     private boolean recordingEnabled = true;
-    private boolean recordingV3Enabled = true;
     private boolean uiInstrumentationEnabled = true;
 
     public void enableDebug() {
@@ -46,10 +45,6 @@ public class ConfigFlags {
         recordingEnabled = false;
     }
 
-    public void disableSessionRecordingV3() {
-        recordingV3Enabled = false;
-    }
-
     public void disableUIInstrumentation() {
         uiInstrumentationEnabled = false;
     }
@@ -60,10 +55,6 @@ public class ConfigFlags {
 
     public boolean isRecordingEnabled() {
         return recordingEnabled;
-    }
-
-    public boolean isRecordingV3Enabled() {
-        return recordingV3Enabled;
     }
 
     public boolean isUIInstrumentationEnabled() {
@@ -115,8 +106,8 @@ public class ConfigFlags {
                 + "networkMonitor:"
                 + networkMonitorEnabled
                 + ","
-                + "recordingV3:"
-                + recordingV3Enabled
+                + "recording:"
+                + recordingEnabled
                 + ","
                 + "uiInstrumentation:"
                 + uiInstrumentationEnabled

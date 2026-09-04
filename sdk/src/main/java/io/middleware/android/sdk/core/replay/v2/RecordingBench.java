@@ -21,9 +21,9 @@ import io.middleware.android.sdk.core.replay.RecordingFrequency;
 import io.middleware.android.sdk.core.replay.RecordingQuality;
 
 /**
- * Offline session-recording micro-benchmark mirroring
- * {@link MiddlewareScreenshotManager} compress + tar.gz batching.
- * Runs without a live Activity (unit-test friendly).
+ * Offline session-recording micro-benchmark mirroring the legacy v2 screenshot
+ * recorder's compress + tar.gz batching. Runs without a live Activity
+ * (unit-test friendly).
  */
 public final class RecordingBench {
 
@@ -173,7 +173,7 @@ public final class RecordingBench {
         return bmp;
     }
 
-    /** Mirrors MiddlewareScreenshotManager.compress scaling + quality. */
+    /** Mirrors the legacy v2 recorder's compress scaling + quality. */
     static byte[] compress(Bitmap originalBitmap, int quality) throws Exception {
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
             int origW = originalBitmap.getWidth();

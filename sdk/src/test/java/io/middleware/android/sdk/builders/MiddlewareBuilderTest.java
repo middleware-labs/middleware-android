@@ -89,23 +89,14 @@ class MiddlewareBuilderTest {
     }
 
     @Test
-    void recordingV3IsEnabledByDefault() {
-        assertTrue(Middleware.builder().isRecordingV3Enabled());
+    void recordingIsEnabledByDefault() {
+        assertTrue(Middleware.builder().isRecordingEnabled());
     }
 
     @Test
-    void shouldEnableSessionRecordingAlsoEnablesV3() {
-        MiddlewareBuilder middlewareBuilder = Middleware.builder();
-        assertTrue(middlewareBuilder.isRecordingV3Enabled());
-        assertTrue(middlewareBuilder.isRecordingEnabled());
-    }
-
-    @Test
-    void shouldDisableSessionRecordingAlsoDisablesV3() {
+    void shouldDisableSessionRecording() {
         MiddlewareBuilder middlewareBuilder = Middleware.builder()
-                .disableSessionRecordingV3()
                 .disableSessionRecording();
-        assertFalse(middlewareBuilder.isRecordingV3Enabled());
         assertFalse(middlewareBuilder.isRecordingEnabled());
     }
 }

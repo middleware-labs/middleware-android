@@ -47,13 +47,13 @@ class RumSetupResourceTest {
             builder.setResourceAttributes(
                 Attributes.of(
                     stringKey("service.name"), "evil-override",
-                    stringKey("recordingV3"), "0",
+                    stringKey("recording"), "0",
                 )
             )
         }
         val attributes = setup.resource.attributes
         assertEquals("test-service", attributes.get(stringKey("service.name")))
-        assertEquals("1", attributes.get(stringKey("recordingV3")))
+        assertEquals("1", attributes.get(stringKey("recording")))
     }
 
     @Test
@@ -64,7 +64,6 @@ class RumSetupResourceTest {
             .put("session.id", "native-session")
             .put("session.start_time", "1750000000000")
             .build()
-        assertEquals("1", rewritten.attributes.get(stringKey("recordingV3")))
         assertEquals("1", rewritten.attributes.get(stringKey("recording")))
         assertEquals("true", rewritten.attributes.get(stringKey("browser.trace")))
         assertEquals("native-session", rewritten.attributes.get(stringKey("session.id")))
