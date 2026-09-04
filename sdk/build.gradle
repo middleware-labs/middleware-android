@@ -4,6 +4,11 @@ plugins {
     id "com.vanniktech.maven.publish" version "0.34.0"
 }
 
+// Single source of truth for the SDK version: publish coordinates, and the
+// benchmark reports written by RecordingBenchTest, both read this.
+// CI overrides it with ORG_GRADLE_PROJECT_VERSION_NAME.
+ext.sdkVersion = project.findProperty("VERSION_NAME") ?: "3.1.4"
+
 mavenPublishing {
     publishToMavenCentral()
     // Signing needs the CI GPG key; skip it for local publishes so
@@ -12,8 +17,7 @@ mavenPublishing {
         signAllPublications()
     }
 
-    // Reads ORG_GRADLE_PROJECT_VERSION_NAME injected by CI
-    coordinates("io.github.middleware-labs", "android-sdk", project.findProperty("VERSION_NAME") ?: "3.1.0")
+    coordinates("io.github.middleware-labs", "android-sdk", project.ext.sdkVersion)
 
     pom {
         name = "Middleware Android RUM SDK"
@@ -73,12 +77,6 @@ android {
         unitTests.returnDefaultValues = true
         unitTests.all {
             useJUnitPlatform()
-            // Forward bench output dir into Robolectric JVM
-            def out = System.getenv("MW_BENCH_OUT")
-            if (out != null && !out.isEmpty()) {
-                environment "MW_BENCH_OUT", out
-            }
-            systemProperty "mw.bench.out", (out ?: "${project.buildDir}/mw-bench")
         }
     }
 }
@@ -100,10 +98,6 @@ dependencies {
     implementation('io.opentelemetry:opentelemetry-extension-trace-propagators:1.48.0')
     api "com.squareup.okhttp3:okhttp:4.12.0"
     implementation("io.opentelemetry.instrumentation:opentelemetry-okhttp-3.0:1.48.0")
-    implementation('org.apache.commons:commons-compress:1.26.0') {
-        exclude group: 'commons-io', module: 'commons-io'
-        exclude group: 'org.apache.commons', module: 'commons-lang3'
-    }
     implementation 'io.opentelemetry.semconv:opentelemetry-semconv-incubating:1.40.0-alpha'
     implementation 'commons-io:commons-io:2.14.0'
     implementation 'org.apache.commons:commons-lang3:3.13.0'

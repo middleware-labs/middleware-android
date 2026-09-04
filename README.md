@@ -31,51 +31,51 @@
 
 ## Benchmarks
 
-Session-recording compress / tar.gz matrix via `RecordingBench` (Robolectric; frequency × quality). As of **2026-07-15**. Production flush size is **10 frames per tar.gz**.
+Real-app benchmark: the Coffee Cart sample driven on an emulator with **v3
+session recording**, SDK **3.1.4**. A mock collector counts exact wire bytes.
 
 ### Production-readiness gate
 
 | Metric | Threshold |
 |---|---|
 | Upload | ≤ 4 MB/min |
-| Avg capture | ≤ 100 ms |
+| Idle upload | ≤ 0.5 MB/min |
+| Cold start Δ | ≤ 250 ms |
 
-### Compress / tar.gz matrix
+### Real app (Coffee Cart on emulator)
 
-| Scenario | Baseline | Avg capture (ms) | tar.gz (bytes) | Frames/tar | Tars/min | MB/min | 1h bytes | 4h tars | Ready |
-|---|---|---|---|---|---|---|---|---|---|
-| idle_recording_off_proxy | recording_off | 14.2 | 2502 | 10 | 6 | 0.014 | 880804 | 1440 | yes |
-| idle_recording_on_low | recording_on | 4.9 | 2510 | 10 | 6 | 0.014 | 880804 | 1440 | yes |
-| scroll_recording_on_standard | recording_on | 4.3 | 2742 | 10 | 18.182 | 0.048 | 3019899 | 4364 | yes |
-| stress_recording_on_high | recording_on | 4.1 | 3266 | 10 | 60 | 0.187 | 11765023 | 14400 | yes |
+The Coffee Cart sample driven through a scripted journey and an idle hold, as of
+**2026-09-04**. Device `sdk_gphone16k_arm64`, Android 17; a mock collector counts
+exact wire bytes. The gate compares `recording_on` against the `sdk_off` baseline.
 
-### Measured tar.gz size (recording on)
+| Scenario | Baseline | Cold start (ms) | CPU avg (%) | Mem peak (MB) | Jank (%) | Frame p95 (ms) | Upload (B) | MB/min | rrweb events | Ready |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| journey | sdk_off | 521 | 11.8 | 72.2 | 25.87 | 61 | 0 | 0 | 0 | yes |
+| idle | sdk_off | 521 | 5.4 | 58.9 | 17.1 | 46 | 0 | 0 | 0 | yes |
+| journey | recording_off | 693 | 12.4 | 76.2 | 28.22 | 65 | 135859 | 0.056 | 0 | yes |
+| idle | recording_off | 693 | 5.5 | 63.7 | 22.67 | 48 | 21949 | 0.018 | 0 | yes |
+| journey | recording_on | 669 | 15.1 | 118.0 | 24.8 | 61 | 738323 | 0.308 | 158 | yes |
+| idle | recording_on | 669 | 5.8 | 85.2 | 11.44 | 44 | 58899 | 0.049 | 9 | yes |
 
-| Workload | Frames / tar | Avg frame | JPEG bytes in tar | tar.gz (upload) | Frames / min | Tars / min |
-|---|---:|---:|---:|---:|---:|---:|
-| Default LOW × LOW | 10 | 9191 B (9.0 KB) | 89.8 KB | **2510 B (2.5 KB)** | 60 | **6** |
-| STANDARD × MEDIUM | 10 | 10608 B (10.4 KB) | 103.6 KB | **2742 B (2.7 KB)** | 181.8 | **18.182** |
-| HIGH × HIGH (stress) | 10 | 12635 B (12.3 KB) | 123.4 KB | **3266 B (3.2 KB)** | 600 | **60** |
+**Reading the numbers:** v3 recording costs about **2.7 points of average CPU** and
+**~46 MB of peak PSS** on the journey, and uploads **0.308 MB/min** — well inside the
+4 MB/min gate. Idle recording is **0.049 MB/min**, an order of magnitude under the
+0.5 MB/min idle gate.
 
-### Measured upload rates (recording on)
+Two caveats on this run, both environmental rather than SDK behaviour:
 
-| Workload | Bytes / min | MB / min |
-|---|---:|---:|
-| Default LOW × LOW | 14680 B (14.3 KB) | 0.014 |
-| STANDARD × MEDIUM | 50332 B (49.2 KB) | 0.048 |
-| HIGH × HIGH (stress) | 196084 B (191.5 KB) | 0.187 |
+- **Jank and cold start are noisy on an emulator.** Each is a single measurement
+  per variant and moves more between runs than the SDK effect being measured —
+  `sdk_off` idle jank of 17.1% against `recording_on` idle jank of 11.44% is
+  emulator variance, not the recorder making frames smoother.
+- **The journey is partial.** The uiautomator driver logged
+  `skipped: add to cart` and `skipped: proceed`, so this journey reduces to
+  navigation plus scrolling rather than a full purchase flow. Idle rows are
+  unaffected.
 
-### Projected session upload (recording on)
-
-Each cell is **tar upload count · total size**.
-
-| Workload | tar.gz each | 5 min | 15 min | 30 min | 1 hour | 2 hours | 4 hours |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| Default LOW × LOW | 2.5 KB | 30 × 2.5 KB = 73.5 KB | 90 × 2.5 KB = 220.6 KB | 180 × 2.5 KB = 441.2 KB | 360 × 2.5 KB = 882.4 KB | 720 × 2.5 KB = 1.72 MB | 1440 × 2.5 KB = 3.45 MB |
-| STANDARD × MEDIUM | 2.7 KB | 91 × 2.7 KB = 243.7 KB | 273 × 2.7 KB = 731.0 KB | 545 × 2.7 KB = 1.43 MB | 1091 × 2.7 KB = 2.85 MB | 2182 × 2.7 KB = 5.71 MB | 4364 × 2.7 KB = 11.41 MB |
-| HIGH × HIGH (stress) | 3.2 KB | 300 × 3.2 KB = 956.8 KB | 900 × 3.2 KB = 2.80 MB | 1800 × 3.2 KB = 5.61 MB | 3600 × 3.2 KB = 11.21 MB | 7200 × 3.2 KB = 22.43 MB | 14400 × 3.2 KB = 44.85 MB |
-
-**Planning:** default LOW×LOW ≈ 860 KB/hour (360 uploads); 4 hours ≈ 3.4 MB (1440 uploads). Real apps vary with UI density and network conditions.
+This suite does not measure APK size impact: `app/build.gradle` links
+`project(':sdk')` in every variant and `BENCH_MODE=no_sdk` only skips
+initialisation, so all three APKs are byte-identical.
 
 ## Requirements
 
