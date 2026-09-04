@@ -31,11 +31,6 @@ android {
                 "ACCESS_KEY",
                 secretProperties['ACCESS_KEY']
         )
-        buildConfigField(
-                "boolean",
-                "RECORDING_V3",
-                secretProperties.getProperty('RECORDING_V3', 'true')
-        )
         // Benchmark harness hook (rum-benchmarks): "" | "no_sdk" | "recording_off"
         buildConfigField(
                 "String",

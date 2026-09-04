@@ -16,7 +16,12 @@ import androidx.appcompat.widget.Toolbar;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputEditText;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 import io.middleware.android.sdk.Middleware;
 import io.opentelemetry.api.common.Attributes;
@@ -24,7 +29,7 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import okhttp3.Call;
 import okhttp3.Callback;
-import okhttp3.FormBody;
+import okhttp3.MediaType;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
@@ -113,14 +118,26 @@ public class CheckoutActivity extends AppCompatActivity {
                 stringKey("cart.total"), CartManager.getInstance().getFormattedTotal()
         ));
 
-        RequestBody body = new FormBody.Builder()
-                .add("name", name)
-                .add("email", email)
-                .add("cart_total", CartManager.getInstance().getFormattedTotal())
-                .build();
+        // dummyjson's cart endpoint expects JSON; a form body is rejected with 400.
+        String payload;
+        try {
+            JSONObject line = new JSONObject()
+                    .put("id", 1)
+                    .put("quantity", CartManager.getInstance().getTotalItemCount());
+            payload = new JSONObject()
+                    .put("userId", 1)
+                    .put("products", new JSONArray().put(line))
+                    .toString();
+        } catch (JSONException e) {
+            payload = "{\"userId\":1,\"products\":[]}";
+        }
+
+        RequestBody body = RequestBody.create(
+                payload.getBytes(StandardCharsets.UTF_8),
+                MediaType.parse("application/json"));
 
         Request request = new Request.Builder()
-                .url("https://demo.mw.dev/api/checkout")
+                .url("https://dummyjson.com/carts/add")
                 .post(body)
                 .build();
 

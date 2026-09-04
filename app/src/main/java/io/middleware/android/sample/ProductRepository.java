@@ -22,7 +22,7 @@ import okhttp3.ResponseBody;
 public class ProductRepository {
 
     private static final String TAG = "ProductRepository";
-    private static final String PRODUCTS_URL = "https://demo.mw.dev/api/products?currencyCode=USD";
+    private static final String PRODUCTS_URL = "https://dummyjson.com/products?limit=20";
 
     public interface ProductsCallback {
         void onProducts(List<Product> products);
@@ -85,18 +85,10 @@ public class ProductRepository {
             for (int i = 0; i < arr.length(); i++) {
                 JSONObject p = arr.getJSONObject(i);
                 String id = p.optString("id", String.valueOf(i + 1));
-                String name = p.optString("name", "Coffee");
+                String name = p.optString("title", "Coffee");
                 String description = p.optString("description", "A delightful brew.");
-
-                double price = 4.50;
-                JSONObject priceObj = p.optJSONObject("priceUsd");
-                if (priceObj != null) {
-                    int units = priceObj.optInt("units", 4);
-                    long nanos = priceObj.optLong("nanos", 500000000L);
-                    price = units + nanos / 1_000_000_000.0;
-                }
-
-                String category = p.optString("categories", "coffee");
+                double price = p.optDouble("price", 4.50);
+                String category = p.optString("category", "coffee");
                 String emoji = emojis[i % emojis.length];
                 products.add(new Product(id, name, description, price, "USD", category, emoji));
             }
