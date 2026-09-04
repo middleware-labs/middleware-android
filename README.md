@@ -44,38 +44,30 @@ session recording**, SDK **3.1.4**. A mock collector counts exact wire bytes.
 
 ### Real app (Coffee Cart on emulator)
 
-The Coffee Cart sample driven through a scripted journey and an idle hold, as of
-**2026-09-04**. Device `sdk_gphone16k_arm64`, Android 17; a mock collector counts
-exact wire bytes. The gate compares `recording_on` against the `sdk_off` baseline.
+The Coffee Cart sample driven through a scripted journey (browse → product →
+add to cart → checkout) and a 60s idle hold, as of **2026-09-04**. Device
+`sdk_gphone16k_arm64`, Android 17; a mock collector counts exact wire bytes.
+The gate compares `recording_on` against the `sdk_off` baseline.
 
 | Scenario | Baseline | Cold start (ms) | CPU avg (%) | Mem peak (MB) | Jank (%) | Frame p95 (ms) | Upload (B) | MB/min | rrweb events | Ready |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|
-| journey | sdk_off | 521 | 11.8 | 72.2 | 25.87 | 61 | 0 | 0 | 0 | yes |
-| idle | sdk_off | 521 | 5.4 | 58.9 | 17.1 | 46 | 0 | 0 | 0 | yes |
-| journey | recording_off | 693 | 12.4 | 76.2 | 28.22 | 65 | 135859 | 0.056 | 0 | yes |
-| idle | recording_off | 693 | 5.5 | 63.7 | 22.67 | 48 | 21949 | 0.018 | 0 | yes |
-| journey | recording_on | 669 | 15.1 | 118.0 | 24.8 | 61 | 738323 | 0.308 | 158 | yes |
-| idle | recording_on | 669 | 5.8 | 85.2 | 11.44 | 44 | 58899 | 0.049 | 9 | yes |
+| journey | sdk_off | 302 | 3.8 | 69.4 | 9.0 | 19 | 0 | 0 | 0 | yes |
+| idle | sdk_off | 302 | 0.4 | 56.0 | 2.24 | 22 | 0 | 0 | 0 | yes |
+| journey | recording_off | 361 | 4.0 | 73.8 | 8.77 | 19 | 156973 | 0.054 | 0 | yes |
+| idle | recording_off | 361 | 0.6 | 63.2 | 2.53 | 22 | 16737 | 0.014 | 0 | yes |
+| journey | recording_on | 369 | 7.0 | 132.1 | 8.29 | 21 | 1320644 | 0.456 | 208 | yes |
+| idle | recording_on | 369 | 0.7 | 84.8 | 3.21 | 23 | 49707 | 0.042 | 6 | yes |
 
-**Reading the numbers:** v3 recording costs about **2.7 points of average CPU** and
-**~46 MB of peak PSS** on the journey, and uploads **0.308 MB/min** — well inside the
-4 MB/min gate. Idle recording is **0.049 MB/min**, an order of magnitude under the
-0.5 MB/min idle gate.
+**What recording costs.** Against `recording_off` on the same journey, v3 session
+recording adds **3.0 points of average CPU** (4.0% → 7.0%) and **58 MB of peak
+PSS** (73.8 → 132.1 MB), and uploads **0.456 MB/min** — roughly a ninth of the
+4 MB/min gate. Idle recording costs **0.042 MB/min** against a 0.5 MB/min gate,
+and frame p95 moves by 2 ms or less in every pairing.
 
-Two caveats on this run, both environmental rather than SDK behaviour:
-
-- **Jank and cold start are noisy on an emulator.** Each is a single measurement
-  per variant and moves more between runs than the SDK effect being measured —
-  `sdk_off` idle jank of 17.1% against `recording_on` idle jank of 11.44% is
-  emulator variance, not the recorder making frames smoother.
-- **The journey is partial.** The uiautomator driver logged
-  `skipped: add to cart` and `skipped: proceed`, so this journey reduces to
-  navigation plus scrolling rather than a full purchase flow. Idle rows are
-  unaffected.
-
-This suite does not measure APK size impact: `app/build.gradle` links
-`project(':sdk')` in every variant and `BENCH_MODE=no_sdk` only skips
-initialisation, so all three APKs are byte-identical.
+**Note on APK size.** This suite cannot measure it: `app/build.gradle` links
+`project(':sdk')` in every variant and `BENCH_MODE=no_sdk` only skips SDK
+initialisation, so all three APKs are byte-identical. Measure a release APK with
+and without the dependency instead.
 
 ## Requirements
 
