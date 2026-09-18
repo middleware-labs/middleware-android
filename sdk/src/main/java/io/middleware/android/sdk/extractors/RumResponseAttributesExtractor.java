@@ -27,8 +27,6 @@ public class RumResponseAttributesExtractor implements AttributesExtractor<Inter
             attributes.put(LINK_TRACE_ID_KEY, ids[0]);
             attributes.put(LINK_SPAN_ID_KEY, ids[1]);
         }
-        attributes.put("http.status_code", response.code());
-        attributes.put("http.method", response.request().method());
         response.headers().forEach(header -> {
             attributes.put("http.response.header." + header.getFirst(), header.getSecond());
         });
