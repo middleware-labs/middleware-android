@@ -7,7 +7,7 @@ plugins {
 // Single source of truth for the SDK version: publish coordinates, and the
 // benchmark reports written by RecordingBenchTest, both read this.
 // CI overrides it with ORG_GRADLE_PROJECT_VERSION_NAME.
-ext.sdkVersion = project.findProperty("VERSION_NAME") ?: "3.1.4"
+ext.sdkVersion = project.findProperty("VERSION_NAME") ?: "3.1.6"
 
 mavenPublishing {
     publishToMavenCentral()

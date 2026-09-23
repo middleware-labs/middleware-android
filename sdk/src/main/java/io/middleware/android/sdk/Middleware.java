@@ -272,19 +272,13 @@ public class Middleware implements IMiddleware {
     }
 
     /**
-     * Probes the sampler for the current session.
+     * Asks the sampler about the current session without emitting a span.
      */
     private static boolean isSampledIn() {
-        if (INSTANCE == null) {
+        if (INSTANCE == null || INSTANCE.getMiddlewareRum() == null) {
             return false;
         }
-        Span probe = INSTANCE.getOpenTelemetry()
-                .getTracer(RUM_TRACER_NAME)
-                .spanBuilder("record init")
-                .startSpan();
-        boolean sampled = probe.isRecording();
-        probe.end();
-        return sampled;
+        return INSTANCE.getMiddlewareRum().isSessionSampledIn();
     }
 
     /**

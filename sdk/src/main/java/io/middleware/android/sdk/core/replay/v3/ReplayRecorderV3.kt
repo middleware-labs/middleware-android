@@ -74,6 +74,29 @@ internal class ReplayRecorderV3(
     @Volatile
     private var lastScreenName: String? = null
 
+    /** The activity the recorder is attached to. Main thread only. */
+    private var attachedActivity: WeakReference<Activity>? = null
+
+    /**
+     * Captures on a timer while the window shows a SurfaceView. SurfaceView
+     * content (Flutter's entire UI, video, maps) updates without the view tree
+     * redrawing, so the draw listener alone would record a Flutter app's first
+     * frame at most. Identical frames are still dropped before export.
+     */
+    private val surfaceTick = object : Runnable {
+        override fun run() {
+            if (!running.get()) {
+                return
+            }
+            val activity = attachedActivity?.get() ?: return
+            val decorView = activity.window?.peekDecorView()
+            if (decorView != null && ScreenshotCapturer.visibleSurfaceViews(decorView).isNotEmpty()) {
+                captureFrame(activity)
+            }
+            mainHandler.postDelayed(this, recordingOptions.screenshotInterval)
+        }
+    }
+
     // ---------------------------------------------------------------------
     // SessionRecorder
     // ---------------------------------------------------------------------
@@ -101,6 +124,8 @@ internal class ReplayRecorderV3(
         }
         application.unregisterActivityLifecycleCallbacks(this)
         mainHandler.post {
+            mainHandler.removeCallbacks(surfaceTick)
+            attachedActivity = null
             for ((_, listener) in drawListeners) {
                 listener.unregister()
             }
@@ -178,11 +203,18 @@ internal class ReplayRecorderV3(
             listener.register()
             drawListeners[decorView] = listener
         }
+        attachedActivity = WeakReference(activity)
+        mainHandler.removeCallbacks(surfaceTick)
+        mainHandler.postDelayed(surfaceTick, recordingOptions.screenshotInterval)
         // capture immediately so a static screen doesn't wait for its next draw
         mainHandler.post { captureFrame(activity) }
     }
 
     private fun detach(activity: Activity) {
+        if (attachedActivity?.get() === activity) {
+            attachedActivity = null
+            mainHandler.removeCallbacks(surfaceTick)
+        }
         val decorView = activity.window?.peekDecorView()
         if (decorView != null) {
             drawListeners.remove(decorView)?.unregister()
