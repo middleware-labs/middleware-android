@@ -27,6 +27,7 @@ import android.os.Looper;
 import com.google.gson.Gson;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.concurrent.atomic.AtomicReference;
 
 import io.middleware.android.sdk.builders.MiddlewareBuilder;
@@ -48,6 +49,8 @@ import io.opentelemetry.android.instrumentation.network.NetworkChangeInstrumenta
 import io.opentelemetry.android.instrumentation.slowrendering.SlowRenderingInstrumentation;
 import io.opentelemetry.android.session.SessionProvider;
 import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.trace.SpanKind;
+import io.opentelemetry.context.Context;
 import io.opentelemetry.context.propagation.TextMapPropagator;
 import io.opentelemetry.exporter.logging.LoggingSpanExporter;
 import io.opentelemetry.exporter.otlp.http.logs.OtlpHttpLogRecordExporter;
@@ -57,6 +60,8 @@ import io.opentelemetry.sdk.resources.Resource;
 import io.opentelemetry.sdk.resources.ResourceBuilder;
 import io.opentelemetry.sdk.trace.export.BatchSpanProcessor;
 import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
+import io.opentelemetry.sdk.trace.samplers.Sampler;
+import io.opentelemetry.sdk.trace.samplers.SamplingDecision;
 
 public class RumSetup implements IRumSetup {
     private static final String INVALID_SESSION_ID = "00000000000000000000000000000000";
@@ -68,6 +73,8 @@ public class RumSetup implements IRumSetup {
     private MiddlewareMetricsExporter middlewareMetricsExporter;
     private String resourceAttributes;
     private final MiddlewareBuilder builder;
+    /** Set when the tracer provider is built; see {@link #isSessionSampledIn()}. */
+    private volatile Sampler sessionSampler;
     /**
      * Bound to {@link OpenTelemetryRum#getRumSessionId()} after {@link #build()} so
      * {@link SessionIdRatioBasedSampler} can read the active session during sampling.
@@ -105,6 +112,30 @@ public class RumSetup implements IRumSetup {
         });
     }
 
+    /**
+     * Whether the current session is sampled in, asked of the sampler directly.
+     *
+     * <p>{@link SessionIdRatioBasedSampler} decides from the session id alone, so no span is
+     * needed to find out. Probing with a real span exported it, and at init that span landed
+     * under the SDK's auto-generated session before a hybrid host (Flutter, React Native) could
+     * inject its own — leaving a phantom one-span session per app launch.
+     */
+    public boolean isSessionSampledIn() {
+        final Sampler sampler = sessionSampler;
+        if (sampler == null) {
+            // Traces not configured: the SDK default samples everything.
+            return true;
+        }
+        return sampler.shouldSample(
+                        Context.root(),
+                        INVALID_SESSION_ID,
+                        "record init",
+                        SpanKind.INTERNAL,
+                        Attributes.empty(),
+                        Collections.emptyList())
+                .getDecision() != SamplingDecision.DROP;
+    }
+
     @Override
     public void setTraces() {
         this.middlewareSpanExporter = new MiddlewareSpanExporter(
@@ -119,15 +150,15 @@ public class RumSetup implements IRumSetup {
                         .build()
         );
         openTelemetryRumBuilder.addTracerProviderCustomizer((sdkTracerProviderBuilder, application1) -> {
-            sdkTracerProviderBuilder.setSampler(
-                    new SessionIdRatioBasedSampler(
-                            builder.sessionSamplingRatio,
-                            new SessionProvider() {
-                                @Override
-                                public String getSessionId() {
-                                    return sessionProviderRef.get().getSessionId();
-                                }
-                            }));
+            sessionSampler = new SessionIdRatioBasedSampler(
+                    builder.sessionSamplingRatio,
+                    new SessionProvider() {
+                        @Override
+                        public String getSessionId() {
+                            return sessionProviderRef.get().getSessionId();
+                        }
+                    });
+            sdkTracerProviderBuilder.setSampler(sessionSampler);
             sdkTracerProviderBuilder.addResource(resource);
             sdkTracerProviderBuilder.addSpanProcessor(
                     BatchSpanProcessor
