@@ -39,6 +39,8 @@ import java.util.WeakHashMap
  *    group taps by element and highlight top elements
  *  - `screen.name` and target identity (`target.class`, `target.resource_id`, `target.text`)
  *
+ * Also arms [ScreenViews] so each resumed activity reports a `screen_view`.
+ *
  * Enabled by default; opt out via `MiddlewareBuilder.disableUIInstrumentation()`.
  */
 class UIInstrumentation : AndroidInstrumentation {
@@ -46,6 +48,7 @@ class UIInstrumentation : AndroidInstrumentation {
     override fun install(installationContext: InstallationContext) {
         val application = installationContext.application
         val tracer = installationContext.openTelemetry.getTracer(RUM_TRACER_NAME)
+        ScreenViews.install(tracer)
         application.registerActivityLifecycleCallbacks(TapLifecycleCallbacks(tracer))
     }
 
@@ -57,6 +60,7 @@ class UIInstrumentation : AndroidInstrumentation {
         private val wrapped = WeakHashMap<Window, TapCallback>()
 
         override fun onActivityResumed(activity: Activity) {
+            ScreenViews.record(ScreenNames.resolve(activity))
             val window = activity.window ?: return
             if (window.callback is TapCallback) {
                 return
