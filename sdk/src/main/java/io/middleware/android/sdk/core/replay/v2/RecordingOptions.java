@@ -36,8 +36,10 @@ public class RecordingOptions {
         // Default values
         private RecordingFrequency frequency = RecordingFrequency.LOW;
         private RecordingQuality quality = RecordingQuality.LOW;
-        private boolean maskAllTextInputs = true;
-        private boolean maskAllImages = true;
+        // Masking defaults match the browser SDK: record the screen as-is and
+        // mask only password/sensitive inputs unless the app opts in.
+        private boolean maskAllTextInputs = false;
+        private boolean maskAllImages = false;
 
         public Builder() {
         }
@@ -62,7 +64,7 @@ public class RecordingOptions {
 
         /**
          * Masks every text input in v3 session recording. When disabled, only
-         * password-type inputs are masked. Default is {@code true}.
+         * password/sensitive inputs are masked. Default is {@code false}.
          */
         public Builder setMaskAllTextInputs(boolean maskAllTextInputs) {
             this.maskAllTextInputs = maskAllTextInputs;
@@ -70,7 +72,7 @@ public class RecordingOptions {
         }
 
         /**
-         * Masks image content in v3 session recording. Default is {@code true}.
+         * Masks image content in v3 session recording. Default is {@code false}.
          */
         public Builder setMaskAllImages(boolean maskAllImages) {
             this.maskAllImages = maskAllImages;

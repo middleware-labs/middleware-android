@@ -7,6 +7,7 @@ import static io.middleware.android.sdk.utils.Constants.BASE_ORIGIN;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_ERROR;
 import static io.middleware.android.sdk.utils.Constants.COMPONENT_KEY;
 import static io.middleware.android.sdk.utils.Constants.EVENT_TYPE;
+import static io.middleware.android.sdk.utils.Constants.MW_RUM_SDK_VERSION;
 import static io.middleware.android.sdk.utils.Constants.SESSION_START_TIME;
 import static io.opentelemetry.android.common.RumConstants.RUM_SDK_VERSION;
 import static io.opentelemetry.api.common.AttributeKey.stringKey;
@@ -328,6 +329,12 @@ public class RumSetup implements IRumSetup {
         resourceBuilder.put("recording", builder.isRecordingEnabled() ? "1" : "0");
         resourceBuilder.put("browser.trace", "true");
         resourceBuilder.put(RUM_SDK_VERSION, BuildConfig.OTEL_ANDROID_VERSION);
+        // The wrapper's version when a Flutter / React Native SDK embeds this one, so
+        // native spans name the SDK the app actually installed.
+        String sdkVersion = builder.globalAttributes.get(MW_RUM_SDK_VERSION);
+        if (sdkVersion == null) sdkVersion = builder.resourceAttributes.get(MW_RUM_SDK_VERSION);
+        resourceBuilder.put(MW_RUM_SDK_VERSION,
+                sdkVersion != null ? sdkVersion : io.middleware.android.sdk.BuildConfig.MW_SDK_VERSION);
         resourceBuilder.put(DEVICE_MODEL_NAME, Build.MODEL);
         resourceBuilder.put(DEVICE_MODEL_IDENTIFIER, Build.MODEL);
         resourceBuilder.put(DEVICE_MANUFACTURER, Build.MANUFACTURER);

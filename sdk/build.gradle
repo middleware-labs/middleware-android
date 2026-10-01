@@ -54,6 +54,12 @@ android {
         minSdk 21
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles "consumer-rules.pro"
+        // Reported as mw.rum.sdk.version.
+        buildConfigField "String", "MW_SDK_VERSION", "\"${project.ext.sdkVersion}\""
+    }
+
+    buildFeatures {
+        buildConfig true
     }
 
     buildTypes {

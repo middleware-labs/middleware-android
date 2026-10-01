@@ -8,8 +8,10 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
+import io.middleware.android.sdk.core.replay.v2.RecordingOptions
 import io.middleware.android.sdk.core.replay.v2.SanitizableViewGroup
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -49,6 +51,43 @@ class MaskRectCollectorTest {
         val collector = MaskRectCollector(maskAllTextInputs = false, maskAllImages = false)
         val rects = collector.collect(rootWith(password), emptyList())
         assertEquals(1, rects.size)
+    }
+
+    @Test
+    fun masksNumericPinField() {
+        val pin = EditText(context).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            setText("1234")
+        }
+        val collector = MaskRectCollector(maskAllTextInputs = false, maskAllImages = false)
+        assertEquals(1, collector.collect(rootWith(pin), emptyList()).size)
+    }
+
+    @Test
+    fun masksCardFieldByAutofillHint() {
+        val card = EditText(context).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER
+            setAutofillHints(View.AUTOFILL_HINT_CREDIT_CARD_NUMBER)
+            setText("4111111111111111")
+        }
+        val collector = MaskRectCollector(maskAllTextInputs = false, maskAllImages = false)
+        assertEquals(1, collector.collect(rootWith(card), emptyList()).size)
+    }
+
+    @Test
+    fun defaultOptionsMaskOnlySensitiveInputs() {
+        // WebView masking isn't covered here: Robolectric's WebView never lays out
+        val options = RecordingOptions.Builder().build()
+        assertFalse(options.isMaskAllTextInputs)
+        assertFalse(options.isMaskAllImages)
+
+        val label = TextView(context).apply { text = "hello" }
+        val password = EditText(context).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setText("secret")
+        }
+        val collector = MaskRectCollector(options.isMaskAllTextInputs, options.isMaskAllImages)
+        assertEquals(1, collector.collect(rootWith(label, password), emptyList()).size)
     }
 
     @Test

@@ -42,6 +42,11 @@ public final class Constants {
      */
     public static final AttributeKey<String> APP_VERSION = stringKey("app.version");
     public static final AttributeKey<String> SESSION_START_TIME = stringKey("session.start_time");
+    /**
+     * Version of the Middleware SDK the app installed, as on the browser and iOS SDKs. A
+     * wrapper SDK (Flutter, React Native) passes its own in the global or resource attributes.
+     */
+    public static final AttributeKey<String> MW_RUM_SDK_VERSION = stringKey("mw.rum.sdk.version");
 
     public static final String BASE_ORIGIN = "sdk.middleware.io";
 
