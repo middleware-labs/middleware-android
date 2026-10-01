@@ -42,6 +42,25 @@ class RumSetupResourceTest {
     }
 
     @Test
+    fun standaloneReportsTheMiddlewareSdkVersion() {
+        // Regression: only rum.sdk.version was set, to the otel-android version.
+        val attributes = rumSetup().resource.attributes
+        assertEquals(
+            io.middleware.android.sdk.BuildConfig.MW_SDK_VERSION,
+            attributes.get(stringKey("mw.rum.sdk.version")),
+        )
+    }
+
+    @Test
+    fun wrapperGlobalAttributesSetTheSdkVersion() {
+        // The Flutter SDK passes its version in the global attributes.
+        val setup = rumSetup { builder ->
+            builder.setGlobalAttributes(Attributes.of(stringKey("mw.rum.sdk.version"), "2.1.2"))
+        }
+        assertEquals("2.1.2", setup.resource.attributes.get(stringKey("mw.rum.sdk.version")))
+    }
+
+    @Test
     fun sdkControlledAttributesWinOverWrapperAttributes() {
         val setup = rumSetup { builder ->
             builder.setResourceAttributes(

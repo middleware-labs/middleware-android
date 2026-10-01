@@ -1,7 +1,9 @@
 package io.middleware.android.sdk.core.replay.v3
 
 import android.graphics.Rect
+import android.os.Build
 import android.text.InputType
+import android.text.method.PasswordTransformationMethod
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
@@ -28,12 +30,14 @@ import java.lang.ref.WeakReference
  * Masking rules (ported from PostHog Android's screenshot mode):
  *  - `mw-no-mask` in a view's tag or contentDescription always wins;
  *  - `mw-no-capture` forces masking of the whole view;
- *  - TextViews: masked when [maskAllTextInputs] or a password input type;
+ *  - TextViews: masked when [maskAllTextInputs] or a sensitive input
+ *    (password/PIN input type, password transformation, OTP or card autofill hint);
  *    EditText/Button mask only the text content area;
  *  - Spinners: masked when [maskAllTextInputs];
  *  - ImageViews: masked when [maskAllImages] and the drawable carries real
  *    content (color/gradient/vector/inset/layer drawables are decorative);
- *  - WebViews: masked whenever any masking is on (their content is opaque to us);
+ *  - WebViews: masked whole when [maskAllTextInputs] or [maskAllImages] is on
+ *    (their content is opaque to us); both are off by default;
  *  - Compose roots: delegated to [ComposeMaskCollector];
  *  - legacy API compat: views registered via Middleware.addSanitizedElement and
  *    [SanitizableViewGroup] containers are always masked.
@@ -43,11 +47,20 @@ internal class MaskRectCollector(
     private val maskAllImages: Boolean,
 ) {
 
-    private val passwordInputTypes = setOf(
+    private val textPasswordVariations = setOf(
         InputType.TYPE_TEXT_VARIATION_PASSWORD,
         InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD,
         InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD,
-        InputType.TYPE_NUMBER_VARIATION_PASSWORD,
+    )
+
+    // View.AUTOFILL_HINT_* / androidx HintConstants values, inlined so they
+    // resolve on minSdk 21; compared case-insensitively.
+    private val sensitiveAutofillHints = setOf(
+        "password", "newpassword",
+        "smsotpcode", "emailotpcode", "2faappotpcode",
+        "creditcardnumber", "creditcardsecuritycode",
+        "creditcardexpirationdate", "creditcardexpirationmonth",
+        "creditcardexpirationyear", "creditcardexpirationday",
     )
 
     fun collect(root: View, sanitizedElements: List<WeakReference<View>>): List<Rect> {
@@ -128,8 +141,29 @@ internal class MaskRectCollector(
     }
 
     private fun TextView.shouldMaskTextView(): Boolean {
-        // inputType is 0-based against the variation constants
-        return maskAllTextInputs || passwordInputTypes.contains(inputType - 1)
+        return maskAllTextInputs || isSensitiveInput()
+    }
+
+    /**
+     * Password (text or numeric PIN), OTP and payment-card fields. These are
+     * masked regardless of [maskAllTextInputs], like rrweb's password masking.
+     */
+    private fun TextView.isSensitiveInput(): Boolean {
+        val inputClass = inputType and InputType.TYPE_MASK_CLASS
+        val variation = inputType and InputType.TYPE_MASK_VARIATION
+        if (inputClass == InputType.TYPE_CLASS_TEXT && variation in textPasswordVariations) {
+            return true
+        }
+        if (inputClass == InputType.TYPE_CLASS_NUMBER && variation == InputType.TYPE_NUMBER_VARIATION_PASSWORD) {
+            return true
+        }
+        if (transformationMethod is PasswordTransformationMethod) {
+            return true
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            return autofillHints?.any { it.lowercase() in sensitiveAutofillHints } == true
+        }
+        return false
     }
 
     /**
