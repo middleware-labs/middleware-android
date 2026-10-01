@@ -37,6 +37,7 @@ import io.middleware.android.sdk.core.RumInitializer;
 import io.middleware.android.sdk.core.RumSetup;
 import io.middleware.android.sdk.core.TracePropagationFilter;
 import io.middleware.android.sdk.core.instrumentations.ui.ScreenNames;
+import io.middleware.android.sdk.core.instrumentations.ui.ScreenViews;
 import io.middleware.android.sdk.core.models.NativeRumSessionId;
 import io.middleware.android.sdk.core.replay.SessionRecorder;
 import io.middleware.android.sdk.core.replay.v2.LifecycleManager;
@@ -676,6 +677,7 @@ public class Middleware implements IMiddleware {
     @Override
     public void setScreenName(@NonNull String screenName) {
         ScreenNames.setManual(screenName);
+        ScreenViews.record(screenName);
     }
 
     /**
