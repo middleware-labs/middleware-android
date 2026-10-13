@@ -516,6 +516,7 @@ public class Middleware implements IMiddleware {
     }
 
     private OkHttpTelemetry createOkHttpTracing() {
+        final MiddlewareBuilder builder = middlewareRum.getBuilder();
         Function<SpanNameExtractor<? super Interceptor.Chain>, SpanNameExtractor<? super Interceptor.Chain>> networkSpanNameExtractor =
                 defaultExtractor -> (requestChain -> {
                     Request request = requestChain.request();
@@ -523,7 +524,11 @@ public class Middleware implements IMiddleware {
                 });
         return OkHttpTelemetry.builder(getOpenTelemetry())
                 .setSpanNameExtractor(networkSpanNameExtractor)
-                .addAttributesExtractor(new RumResponseAttributesExtractor(new ServerTimingHeaderParser()))
+                .addAttributesExtractor(new RumResponseAttributesExtractor(
+                        new ServerTimingHeaderParser(),
+                        builder.isCaptureNetworkHeadersEnabled(),
+                        builder.isCaptureResponseBodiesEnabled(),
+                        builder.getIgnoreHeaders()))
                 .build();
     }
 

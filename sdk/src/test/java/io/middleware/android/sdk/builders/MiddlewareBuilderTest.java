@@ -13,6 +13,10 @@ import android.app.Application;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+
 import io.middleware.android.sdk.Middleware;
 import io.opentelemetry.api.common.Attributes;
 
@@ -98,5 +102,35 @@ class MiddlewareBuilderTest {
         MiddlewareBuilder middlewareBuilder = Middleware.builder()
                 .disableSessionRecording();
         assertFalse(middlewareBuilder.isRecordingEnabled());
+    }
+
+    @Test
+    void networkCaptureIsOffByDefault() {
+        MiddlewareBuilder builder = Middleware.builder();
+        assertFalse(builder.isCaptureNetworkHeadersEnabled());
+        assertFalse(builder.isCaptureResponseBodiesEnabled());
+        assertTrue(builder.getIgnoreHeaders().isEmpty());
+    }
+
+    @Test
+    void networkCaptureFlagsAreIndependent() {
+        MiddlewareBuilder headers = Middleware.builder().setCaptureNetworkHeaders(true);
+        assertTrue(headers.isCaptureNetworkHeadersEnabled());
+        assertFalse(headers.isCaptureResponseBodiesEnabled());
+
+        MiddlewareBuilder bodies = Middleware.builder().setCaptureResponseBodies(true);
+        assertFalse(bodies.isCaptureNetworkHeadersEnabled());
+        assertTrue(bodies.isCaptureResponseBodiesEnabled());
+    }
+
+    @Test
+    void ignoreHeadersAreLowercased() {
+        MiddlewareBuilder builder = Middleware.builder()
+                .setIgnoreHeaders(Arrays.asList("Authorization", " X-Api-Key ", null));
+        assertEquals(new HashSet<>(Arrays.asList("authorization", "x-api-key")),
+                builder.getIgnoreHeaders());
+
+        builder.setIgnoreHeaders(null);
+        assertEquals(Collections.emptySet(), builder.getIgnoreHeaders());
     }
 }

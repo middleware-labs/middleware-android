@@ -226,6 +226,30 @@ Methods that can be used for setting instrumentation & configure your applicatio
         Restricts which outbound request URLs carry <code>traceparent</code> and B3 headers. By default every URL does. See <a href="#distributed-tracing">Distributed Tracing</a>.
     </td>
 </tr>
+<tr>
+    <td>
+        <code lang="java">setCaptureNetworkHeaders(boolean)</code>
+    </td>
+    <td>
+        Records request and response headers on HTTP spans. Default <code>false</code>. See <a href="#capturing-headers-and-response-bodies">Capturing headers and response bodies</a>.
+    </td>
+</tr>
+<tr>
+    <td>
+        <code lang="java">setCaptureResponseBodies(boolean)</code>
+    </td>
+    <td>
+        Records JSON and plain-text response bodies (up to 64 KiB) on HTTP spans. Default <code>false</code>.
+    </td>
+</tr>
+<tr>
+    <td>
+        <code lang="java">setIgnoreHeaders(Collection&lt;String&gt;)</code>
+    </td>
+    <td>
+        Header names (case-insensitive) that are never recorded, even with header capture on. Default empty.
+    </td>
+</tr>
 </tbody>
 </table>
 
@@ -244,6 +268,37 @@ private Call.Factory buildOkHttpClient(Middleware middleware) {
 > produce no HTTP spans and carry no trace headers. Every network call must go through the
 > `Call.Factory` returned above. If none does, the SDK logs a warning about ten seconds after
 > startup.
+
+#### Capturing headers and response bodies
+
+HTTP spans record the method, URL, status and timing of every request. Headers and response bodies
+are **not** recorded unless you opt in, because they routinely carry credentials, session
+cookies and personal data:
+
+```java
+Middleware.builder()
+        // ... other configuration
+        .setCaptureNetworkHeaders(true)
+        .setCaptureResponseBodies(true)
+        .setIgnoreHeaders(Arrays.asList("Authorization", "Cookie", "Set-Cookie"))
+        .build(this);
+```
+
+- **Headers** are recorded as `http.request.header.<name>` and `http.response.header.<name>`,
+  where `<name>` is lowercased with `-` replaced by `_` (`Content-Type` becomes
+  `http.response.header.content_type`). Repeated headers are joined with `,`. The value of
+  `x-access-token` is always masked as `********`. Names passed to `setIgnoreHeaders` are matched
+  case-insensitively and never recorded.
+- **Response bodies** are recorded as `http.response.body`, only when the response `Content-Type`
+  is `application/json`, any `+json` type, or `text/plain`. The body is read without consuming
+  it, so your code still receives the full response; the recorded copy is truncated to 64 KiB.
+  Empty bodies are skipped.
+- **Request bodies are never recorded.**
+
+> **Behaviour change:** earlier versions of this SDK recorded every request and response header
+> unconditionally, under the raw header name (e.g. `http.response.header.Content-Type`). Headers
+> are now off by default and use the normalised names above. Call
+> `setCaptureNetworkHeaders(true)` to keep recording them.
 
 ### Distributed Tracing
 
@@ -316,10 +371,12 @@ entirely.
 
 #### Verifying it works
 
-The span for each request records its outbound headers as attributes. In the session explorer,
-open a network event and look for `http.request.header.traceparent`. If it is present, the SDK
-propagated correctly and any missing correlation is on the backend side. If it is absent, the
-request did not go through the wrapped client.
+With `setCaptureNetworkHeaders(true)`, the span for each request records its outbound headers as
+attributes. In the session explorer, open a network event and look for
+`http.request.header.traceparent`. If it is present, the SDK propagated correctly and any missing
+correlation is on the backend side. If it is absent, the request did not go through the wrapped
+client (or the host is excluded by `setTracePropagationTargets`). Header capture is off by
+default, so enable it while verifying if you do not otherwise need it.
 
 ### Manually instrumentation for android application
 
