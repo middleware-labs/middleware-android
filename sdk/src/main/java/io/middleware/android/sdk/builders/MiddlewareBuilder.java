@@ -10,8 +10,12 @@ import androidx.annotation.Nullable;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import io.middleware.android.sdk.Middleware;
@@ -51,6 +55,9 @@ public final class MiddlewareBuilder {
      * trace-context headers. See {@link #setTracePropagationTargets(List)}.
      */
     public List<Pattern> tracePropagationTargets = DEFAULT_TRACE_PROPAGATION_TARGETS;
+    private boolean captureNetworkHeaders = false;
+    private boolean captureResponseBodies = false;
+    private Set<String> ignoreHeaders = Collections.emptySet();
     public RecordingOptions recordingOptions = new RecordingOptions.Builder()
             .setFrequency(RecordingFrequency.LOW)
             .setQuality(RecordingQuality.LOW)
@@ -286,6 +293,76 @@ public final class MiddlewareBuilder {
                     Collections.unmodifiableList(new ArrayList<>(targets));
         }
         return this;
+    }
+
+    /**
+     * Records the request and response headers of every HTTP request made through
+     * {@link Middleware#createRumOkHttpCallFactory(okhttp3.OkHttpClient)} as
+     * {@code http.request.header.<name>} / {@code http.response.header.<name>} span attributes,
+     * where {@code <name>} is the header name lowercased with {@code -} replaced by {@code _}.
+     *
+     * <p>Off by default: headers routinely carry credentials and session identifiers. Exclude
+     * specific headers with {@link #setIgnoreHeaders(Collection)}. The value of
+     * {@code x-access-token} is always masked.
+     *
+     * @return {@code this}
+     */
+    public MiddlewareBuilder setCaptureNetworkHeaders(boolean enabled) {
+        this.captureNetworkHeaders = enabled;
+        return this;
+    }
+
+    /**
+     * Records the response body of HTTP requests made through
+     * {@link Middleware#createRumOkHttpCallFactory(okhttp3.OkHttpClient)} as the
+     * {@code http.response.body} span attribute, for {@code application/json}, {@code *+json}
+     * and {@code text/plain} responses only, truncated to 64 KiB. The body is read without
+     * consuming it, so the app still receives the full response. Request bodies are never
+     * recorded.
+     *
+     * <p>Off by default.
+     *
+     * @return {@code this}
+     */
+    public MiddlewareBuilder setCaptureResponseBodies(boolean enabled) {
+        this.captureResponseBodies = enabled;
+        return this;
+    }
+
+    /**
+     * Header names (case-insensitive) that are never recorded, even when
+     * {@link #setCaptureNetworkHeaders(boolean)} is on. Passing {@code null} clears the list.
+     *
+     * @return {@code this}
+     */
+    public MiddlewareBuilder setIgnoreHeaders(@Nullable Collection<String> headers) {
+        if (headers == null || headers.isEmpty()) {
+            this.ignoreHeaders = Collections.emptySet();
+            return this;
+        }
+        Set<String> normalized = new HashSet<>();
+        for (String header : headers) {
+            if (header != null && !header.trim().isEmpty()) {
+                normalized.add(header.trim().toLowerCase(Locale.ROOT));
+            }
+        }
+        this.ignoreHeaders = Collections.unmodifiableSet(normalized);
+        return this;
+    }
+
+    public boolean isCaptureNetworkHeadersEnabled() {
+        return captureNetworkHeaders;
+    }
+
+    public boolean isCaptureResponseBodiesEnabled() {
+        return captureResponseBodies;
+    }
+
+    /**
+     * The headers excluded from capture, lowercased. Never {@code null}.
+     */
+    public Set<String> getIgnoreHeaders() {
+        return ignoreHeaders;
     }
 
     /**
