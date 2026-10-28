@@ -84,9 +84,13 @@ public class RumInitializer implements IRum {
         }
         final OpenTelemetryRum openTelemetryRum = rumSetup.build();
         rumSetup.bindSessionProvider(openTelemetryRum);
-        initializerEvent.recordInitializationSpans(
-                builder.getConfigFlags(),
-                openTelemetryRum.getOpenTelemetry().getTracer(RUM_TRACER_NAME));
+        // AppStart belongs to whoever owns the app lifecycle. Hybrid hosts disable it and emit
+        // their own; recorded here it would start before they inject their session id.
+        if (builder.isActivityLifecycleEnabled()) {
+            initializerEvent.recordInitializationSpans(
+                    builder.getConfigFlags(),
+                    openTelemetryRum.getOpenTelemetry().getTracer(RUM_TRACER_NAME));
+        }
         return new Middleware(openTelemetryRum, rumSetup, globalAttributesSpanAppender);
     }
 
