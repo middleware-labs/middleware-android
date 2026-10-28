@@ -68,6 +68,7 @@ public class RumSetup implements IRumSetup {
     private static final String INVALID_SESSION_ID = "00000000000000000000000000000000";
 
     private final OpenTelemetryRumBuilder openTelemetryRumBuilder;
+    private final OtelRumConfig otelRumConfig;
     private Resource resource;
     private MiddlewareSpanExporter middlewareSpanExporter;
     private MiddlewareLogsExporter middlewareLogsExporter;
@@ -94,10 +95,25 @@ public class RumSetup implements IRumSetup {
         // Network/screen attributes, instrumentation discovery and SDK initialization events are
         // all on by default; OtelRumConfig only exposes disableX() setters and shouldX() getters,
         // so leaving them alone is how they stay enabled.
-        final OtelRumConfig otelRumConfig = new OtelRumConfig();
+        otelRumConfig = new OtelRumConfig();
         otelRumConfig.setSessionTimeout(Duration.ofMinutes(15));
+        if (!builder.isActivityLifecycleEnabled()) {
+            // Discovery installs otel-android's ActivityLifecycleInstrumentation, which starts an
+            // AppStart span inside build() and ends it only at the next lifecycle callback. Hybrid
+            // hosts (React Native, Flutter) disable lifecycle monitoring and inject their session
+            // after build(), so that span carried the SDK's auto-generated session id and stayed
+            // open until the app was backgrounded: a phantom "AppStart … Paused" session with no
+            // replay on every launch. The instrumentations Middleware wants (ANR, crash, network,
+            // slow rendering, UI) are added explicitly and are unaffected.
+            otelRumConfig.disableInstrumentationDiscovery();
+        }
         openTelemetryRumBuilder = OpenTelemetryRum.builder(application, otelRumConfig);
         openTelemetryRumBuilder.mergeResource(resource);
+    }
+
+    /** Whether otel-android may install the instrumentations it finds on the classpath. */
+    public boolean isInstrumentationDiscoveryEnabled() {
+        return otelRumConfig.shouldDiscoverInstrumentations();
     }
 
     /**

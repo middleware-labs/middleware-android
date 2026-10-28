@@ -130,7 +130,9 @@ public final class MiddlewareBuilder {
     }
 
     /**
-     * Disables the activity lifecycle monitoring instrumentation.
+     * Disables the activity lifecycle monitoring instrumentation: the activity/fragment
+     * lifecycle spans and the AppStart / Middleware.initialize spans. For hybrid hosts
+     * (React Native, Flutter) that emit their own app-start span.
      *
      * @return {@code this}
      */
