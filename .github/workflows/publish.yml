@@ -14,6 +14,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4.1.1
 
+      - name: Verify CHANGELOG.md has a section for this version
+        run: python3 scripts/changelog.py check "$VERSION"
+        env:
+          VERSION: ${{ github.event.inputs.versionName }}
+
       - name: Set up Java 17
         uses: actions/setup-java@v3.13.0
         with:
@@ -45,11 +50,16 @@ jobs:
         env:
           TAG: ${{ github.event.inputs.versionName }}
 
-      - name: Build Changelog
+      - name: Read release notes from CHANGELOG.md
         id: github_release
-        uses: mikepenz/release-changelog-builder-action@v3
+        run: |
+          {
+            echo 'changelog<<CHANGELOG_EOF'
+            python3 scripts/changelog.py notes "$VERSION"
+            echo 'CHANGELOG_EOF'
+          } >> "$GITHUB_OUTPUT"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ github.event.inputs.versionName }}
 
       - name: Create Release
         uses: mikepenz/action-gh-release@v0.2.0-a03
