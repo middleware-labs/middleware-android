@@ -1,0 +1,37 @@
+name: Changelog
+
+# Every PR that changes the published SDK must add an entry under
+# [Unreleased] in CHANGELOG.md. Apply the `skip-changelog` label to PRs whose
+# changes are not user-facing (refactors, tests, build tweaks).
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+jobs:
+  changelog:
+    name: CHANGELOG entry
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-changelog') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Require a CHANGELOG.md entry for SDK changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          # Files that ship in the published artifact (tests excluded below).
+          SDK_PATHS: '^sdk/'
+          TEST_PATHS: '^sdk/src/test/'
+        run: |
+          changed=$(git diff --name-only "$BASE_SHA"...HEAD)
+          if ! echo "$changed" | grep -E "$SDK_PATHS" | grep -qvE "$TEST_PATHS"; then
+            echo "No SDK changes; no CHANGELOG entry needed."
+            exit 0
+          fi
+          if echo "$changed" | grep -qx 'CHANGELOG.md'; then
+            echo "CHANGELOG.md updated."
+            exit 0
+          fi
+          echo "::error file=CHANGELOG.md::This PR changes the SDK but not CHANGELOG.md. Add a bullet under [Unreleased], or apply the skip-changelog label if nothing changes for app developers."
+          exit 1
